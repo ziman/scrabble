@@ -1,0 +1,21 @@
+name:                pictionary-hs
+version:             0.1.0.0
+github:              "ziman/pictionary-hs"
+license:             BSD3
+author:              "Matus Tejiscak"
+maintainer:          "ziman@functor.sk"
+copyright:           "2020 Matus Tejiscak"
+description:         Drop-in replacement for Pictionary-JS backend.
+
+dependencies:
+- base >= 4.7 && < 5
+
+ghc-options:
+- -threaded
+- -rtsopts
+- -with-rtsopts=-N
+
+executables:
+  backend:
+    main:                Main.hs
+    source-dirs:         src
