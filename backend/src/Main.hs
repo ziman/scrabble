@@ -32,7 +32,7 @@ application mvState pending = do
 main :: IO ()
 main = do
   mvState <- newMVar initialState
-  WS.runServer "127.0.0.1" 9160
+  WS.runServer "0.0.0.0" 8083
     $ application mvState
   where
     initialState = State
