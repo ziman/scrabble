@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: aafefa2b04c523213b7f78f326b8b71d6c91d1820a41765d2bac10f4f92aea8a
+-- hash: 93a0a88d2e325c4a89de30dafd04be7a1d652d671d88da1ba26e23287e21181e
 
 name:           pictionary-hs
 version:        0.1.0.0
@@ -33,7 +33,9 @@ executable backend
   build-depends:
       aeson
     , base >=4.7 && <5
+    , bytestring
     , containers
+    , stm
     , text
     , transformers
     , websockets
