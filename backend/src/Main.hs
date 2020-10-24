@@ -104,11 +104,12 @@ loop api = do
 clientLoop :: Api ()
 clientLoop = do
   send $ Update{ mscClients = ["hello", "world"] }
-  loop $
-    recv >>= \case
-      Join{..} -> do
-        liftIO $ print mcsUserName
-        send $ Update{ mscClients = ["woo", "boo"] }
+  loop $ recv >>= handle
+
+handle :: Message_C2S -> Api ()
+handle Join{..} = do
+  liftIO $ print mcsUserName
+  send $ Update{ mscClients = ["woo", "boo"] }
 
 application :: TVar State -> WS.ServerApp
 application tvState pending = do
