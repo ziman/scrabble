@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d82a732b1436205bad5b626a8e3a5607bc4947c47ab20b919e7fb98469dc2b6c
+-- hash: aafefa2b04c523213b7f78f326b8b71d6c91d1820a41765d2bac10f4f92aea8a
 
 name:           pictionary-hs
 version:        0.1.0.0
@@ -31,7 +31,8 @@ executable backend
   default-extensions: LambdaCase TypeApplications TypeOperators ScopedTypeVariables DeriveGeneric DeriveAnyClass DataKinds DerivingStrategies GeneralizedNewtypeDeriving ViewPatterns Strict FlexibleInstances FlexibleContexts GADTs TypeFamilies NamedFieldPuns RankNTypes MultiParamTypeClasses RecordWildCards MultiWayIf OverloadedStrings
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , containers
     , text
     , transformers
