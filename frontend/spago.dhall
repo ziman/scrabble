@@ -5,6 +5,8 @@
   , "psci-support"
   , "affjax"
   , "argonaut-codecs"
+  , "argonaut-generic"
+  , "generics-rep"
   , "http-methods"
   , "websocket-moderate"
   , "react-basic"

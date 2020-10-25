@@ -49,7 +49,7 @@ jsonOptions = (aesonPrefix camelCase)
 
 data Message_C2S
   = Join
-    { mcsUserName :: Text
+    { mcsPlayerName :: Text
     }
   deriving (Eq, Ord, Show, Generic)
 
@@ -108,7 +108,7 @@ clientLoop = do
 
 handle :: Message_C2S -> Api ()
 handle Join{..} = do
-  liftIO $ print mcsUserName
+  liftIO $ print mcsPlayerName
   send $ Update{ mscClients = ["woo", "boo"] }
 
 application :: TVar State -> WS.ServerApp

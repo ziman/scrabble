@@ -6,16 +6,23 @@ import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 
+import Effect (Effect)
+import WebSocket as WS
+
+import Api as Api
+import Utils as Utils
 import Component.Login as Login
 import Component.Board as Board
 import Component.Placeholder as UserList
 import Component.Placeholder as Letters
 
 type Props = Unit
-type Cookie = String
 data State
   = LoggedOut
-  | LoggedIn Cookie
+  | LoggedIn String Api.Cookie
+
+onMessage :: Self Props State -> WS.Capabilities Effect Api.Message_C2S -> Api.Message_S2C -> Effect Unit
+onMessage self sock msg = pure unit
 
 render :: Self Props State -> JSX
 render self =
@@ -25,11 +32,23 @@ render self =
       { className: "game"
       , children:
         [ Login.new
-          { onSubmit: \_playerName -> pure unit
+          { onSubmit: \playerName ->
+              WS.newWebSocket ":8083" [] $
+                WS.WebSocketsApp \env ->
+                  { onopen: \sock ->
+                      sock.send $ Api.Join {playerName}
+                  , onmessage: \sock msg ->
+                      onMessage self sock msg
+                  , onerror: \err -> do
+                      Utils.alert (show err)
+                      self.setState \s -> LoggedOut
+                  , onclose: \evt -> do
+                      self.setState \s -> LoggedOut
+                  }
           }
         ]
       }
-    LoggedIn _cookie ->
+    LoggedIn _playerName _cookie ->
       R.div
       { className: "game"
       , children:
