@@ -1,7 +1,6 @@
-module Component.Letter (new) where
+module Component.Letter (new, Props) where
 
 import Prelude
-import Effect.Class (class MonadEffect)
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
