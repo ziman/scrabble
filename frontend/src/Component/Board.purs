@@ -3,17 +3,17 @@ module Component.Board (new) where
 import Prelude
 import Matrix (Matrix)
 import Matrix as Matrix
-import Data.Maybe (Maybe(..))
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 
+import Api as Api
 import Component.Letter as Letter
 
 type Props = Unit
 type State =
-  { letters :: Matrix (Maybe Letter.Props)
+  { letters :: Matrix Api.Cell
   }
 
 render :: Self Props State -> JSX
@@ -24,12 +24,13 @@ render self =
      Matrix.rows self.state.letters <#> \row ->
       R.tr
       { children:
-          row <#> \mbProps ->
+          row <#> \cell ->
             R.td
             { children:
-                case mbProps of
-                  Just props -> [Letter.new props]
-                  Nothing -> []
+                case cell of
+                  Api.Blank -> []
+                  Api.Boost _ -> []
+                  Api.Letter letter -> [Letter.new letter]
             }
       }
   }
@@ -37,7 +38,7 @@ render self =
 new :: Props -> JSX
 new = make (createComponent "Board")
   { initialState:
-    { letters: Matrix.repeat 15 15 Nothing
+    { letters: Matrix.repeat 15 15 Api.Blank
     }
   , render
   }

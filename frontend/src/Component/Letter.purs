@@ -1,4 +1,4 @@
-module Component.Letter (new, Props) where
+module Component.Letter (new) where
 
 import Prelude
 
@@ -6,10 +6,9 @@ import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 
-type Props =
-  { letter :: String
-  , value :: Int
-  }
+import Api as Api
+
+type Props = Api.Letter
 type State = Unit
 
 render :: Self Props State -> JSX
