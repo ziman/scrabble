@@ -115,6 +115,8 @@ sendStateUpdate = do
         ]
       }
     , Api.stLetters = clLetters client
+    , Api.stName    = clName client
+    , Api.stCookie  = clCookie client
     }
 
 clientLoop :: Api ()

@@ -33,8 +33,8 @@ instance cellDecodeJson :: DecodeJson Cell where
   decodeJson json = do
     obj <- decodeJson json
     obj .: "tag" >>= case _ of
-      "Blank" -> Blank <$> (obj .: "content" >>= decodeJson)
-      "Played" -> Played <$> (obj .: "content" >>= decodeJson)
+      "Blank" -> Blank <$> (obj .: "contents" >>= decodeJson)
+      "Played" -> Played <$> (obj .: "contents" >>= decodeJson)
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
 type Cookie = String
@@ -59,6 +59,8 @@ type State =
   { players :: Array String
   , board :: Board
   , letters :: Array Letter
+  , name :: String
+  , cookie :: String
   }
 
 data Message_S2C

@@ -20,9 +20,12 @@ import Component.Placeholder as Letters
 type Props = Unit
 data State
   = LoggedOut
-  | LoggedIn String Api.Cookie
+  | LoggedIn Api.State
 
 onMessage :: Self Props State -> WS.Capabilities Effect Api.Message_C2S -> Api.Message_S2C -> Effect Unit
+onMessage self sock (Api.Update u) = do
+  self.setState \s -> LoggedIn u.state
+
 onMessage self sock msg = pure unit
 
 render :: Self Props State -> JSX
@@ -51,7 +54,7 @@ render self =
           }
         ]
       }
-    LoggedIn _playerName _cookie ->
+    LoggedIn state ->
       R.div
       { className: "game"
       , children:
@@ -59,7 +62,7 @@ render self =
         , R.div
           { className: "main"
           , children:
-            [ Board.new unit
+            [ Board.new state.board
             , Letters.new {title: "letters"}
             ]
           }

@@ -67,6 +67,8 @@ data State = State
   { stPlayers :: [Text]
   , stBoard :: Board
   , stLetters :: [Letter]
+  , stName :: Text
+  , stCookie :: Cookie
   }
   deriving (Eq, Ord, Show, Generic)
 
