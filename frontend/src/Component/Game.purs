@@ -7,8 +7,8 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 
+import Component.Board as Board
 import Component.Placeholder as UserList
-import Component.Placeholder as Board
 import Component.Placeholder as Letters
 
 import Effect.Class (class MonadEffect)
@@ -26,7 +26,7 @@ render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render state = HH.div [HP.classes [HH.ClassName "game"]]
   [ HH.slot (SProxy :: SProxy "userlist") 0 (UserList.new "user-list") unit absurd
   , HH.div [HP.classes [HH.ClassName "main"]]
-    [ HH.slot (SProxy :: SProxy "board") 1 (Board.new "board") unit absurd
+    [ HH.slot (SProxy :: SProxy "board") 1 Board.new unit absurd
     , HH.slot (SProxy :: SProxy "letters") 2 (Letters.new "letters") unit absurd
     ]
   ]
