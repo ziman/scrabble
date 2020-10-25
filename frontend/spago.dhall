@@ -1,4 +1,4 @@
-{ name = "pixit"
+{ name = "scrabble"
 , dependencies =
   [ "console"
   , "effect"

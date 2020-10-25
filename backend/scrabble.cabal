@@ -4,28 +4,27 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0f29af355d2a15d01d2d648fa85ed775621a6198b3fda38f32f7984da4b6945d
+-- hash: 309ba878935a6cd6ca68ffb252c62422d416827d4177957d1352ae045bd56628
 
-name:           pictionary-hs
+name:           scrabble
 version:        0.1.0.0
-description:    Drop-in replacement for Pictionary-JS backend.
-homepage:       https://github.com/ziman/pictionary-hs#readme
-bug-reports:    https://github.com/ziman/pictionary-hs/issues
+description:    Online game of Scrabble
+homepage:       https://github.com/ziman/scrabble#readme
+bug-reports:    https://github.com/ziman/scrabble/issues
 author:         Matus Tejiscak
 maintainer:     ziman@functor.sk
 copyright:      2020 Matus Tejiscak
 license:        BSD3
-license-file:   LICENSE
 build-type:     Simple
 
 source-repository head
   type: git
-  location: https://github.com/ziman/pictionary-hs
+  location: https://github.com/ziman/scrabble
 
 executable backend
   main-is: Main.hs
   other-modules:
-      Paths_pictionary_hs
+      Paths_scrabble
   hs-source-dirs:
       src
   default-extensions: LambdaCase TypeApplications TypeOperators ScopedTypeVariables DeriveGeneric DeriveAnyClass DataKinds DerivingStrategies GeneralizedNewtypeDeriving ViewPatterns Strict FlexibleInstances FlexibleContexts GADTs TypeFamilies NamedFieldPuns RankNTypes MultiParamTypeClasses RecordWildCards MultiWayIf OverloadedStrings

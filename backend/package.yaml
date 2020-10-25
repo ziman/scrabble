@@ -1,11 +1,11 @@
-name:                pictionary-hs
+name:                scrabble
 version:             0.1.0.0
-github:              "ziman/pictionary-hs"
+github:              "ziman/scrabble"
 license:             BSD3
 author:              "Matus Tejiscak"
 maintainer:          "ziman@functor.sk"
 copyright:           "2020 Matus Tejiscak"
-description:         Drop-in replacement for Pictionary-JS backend.
+description:         Online game of Scrabble
 
 dependencies:
 - base >= 4.7 && < 5
