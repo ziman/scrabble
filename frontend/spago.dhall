@@ -7,7 +7,7 @@
   , "affjax"
   , "argonaut-codecs"
   , "http-methods"
-  , "web-socket"
+  , "websocket-moderate"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
