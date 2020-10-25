@@ -5,7 +5,7 @@ import Data.Text (Text)
 import Data.Aeson.Casing
 import qualified Data.Aeson as Aeson
 
-data Letter = MkLetter
+data Letter = Letter
   { lLetter :: Text
   , lValue :: Int
   }
@@ -20,7 +20,7 @@ data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
 instance Aeson.ToJSON Boost where
   toJSON = Aeson.genericToJSON jsonOptions
 
-data Cell = Blank | Boost Boost | Letter Letter
+data Cell = Blank (Maybe Boost) | Played Letter
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.ToJSON Cell where

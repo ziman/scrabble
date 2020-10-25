@@ -1,6 +1,7 @@
 module Component.Board (new) where
 
 import Prelude
+import Data.Maybe (Maybe(..))
 import Matrix (Matrix)
 import Matrix as Matrix
 
@@ -28,9 +29,9 @@ render self =
             R.td
             { children:
                 case cell of
-                  Api.Blank -> []
-                  Api.Boost _ -> []
-                  Api.Letter letter -> [Letter.new letter]
+                  Api.Blank Nothing -> []
+                  Api.Blank (Just _boost) -> []
+                  Api.Played letter -> [Letter.new letter]
             }
       }
   }
@@ -38,7 +39,7 @@ render self =
 new :: Props -> JSX
 new = make (createComponent "Board")
   { initialState:
-    { letters: Matrix.repeat 15 15 Api.Blank
+    { letters: Matrix.repeat 15 15 (Api.Blank Nothing)
     }
   , render
   }

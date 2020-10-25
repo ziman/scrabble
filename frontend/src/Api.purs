@@ -1,6 +1,7 @@
 module Api where
 
 import Prelude
+import Data.Maybe (Maybe)
 import Data.Either (Either(..))
 import Foreign.Object as Object
 import Data.Argonaut.Core (caseJsonObject, fromString, fromObject, Json)
@@ -26,15 +27,14 @@ instance boostDecodeJson :: DecodeJson Boost where
       "TripleWord" -> pure TripleWord
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
-data Cell = Blank | Boost Boost | Letter Letter
+data Cell = Blank (Maybe Boost) | Played Letter
 
 instance cellDecodeJson :: DecodeJson Cell where
   decodeJson json = do
     obj <- decodeJson json
     obj .: "tag" >>= case _ of
-      "Blank" -> pure Blank
-      "Boost" -> Boost <$> decodeJson json
-      "Letter" -> Letter <$> decodeJson json
+      "Blank" -> Blank <$> (obj .: "content" >>= decodeJson)
+      "Played" -> Played <$> (obj .: "content" >>= decodeJson)
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
 type Cookie = String

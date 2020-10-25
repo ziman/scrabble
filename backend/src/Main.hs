@@ -4,10 +4,12 @@ import Data.Functor ((<&>))
 import Data.Char (isPunctuation, isSpace)
 import Data.Monoid (mappend)
 import Data.Text (Text)
+import Data.Map.Strict (Map)
 import Data.List (stripPrefix)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import qualified Data.ByteString as BS
+import qualified Data.Map.Strict as Map
 
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
@@ -21,13 +23,20 @@ import qualified Network.WebSockets as WS
 
 import qualified Api
 
+type Letter = Text
+
 data Client = Client
   { clName :: Text
   , clConnection :: WS.Connection
+  , clLetters :: [Letter]
+  , clScore :: Int
   }
 
 data State = State
   { stClients :: [Client]
+  , stBoardSize :: (Int, Int)
+  , stBoard :: Map (Int, Int) Api.Cell
+  , stBag :: [Letter]
   }
 
 data Env = Env
@@ -102,6 +111,29 @@ application tvState pending = do
       Left err -> putStrLn $ "error: " ++ show err
       Right () -> pure ()
 
+-- repeats are fine
+symmetry :: [(Int, Int)] -> [(Int, Int)]
+symmetry ijs = concat
+  [ [ (i, j)
+    , (15-i, j)
+    , (i, 15-j)
+    , (15-i, 15-j)
+    , (j, i)
+    , (j, 15-i)
+    , (15-j, i)
+    , (15-j, 15-i)
+    ]
+  | (i, j) <- ijs
+  ]
+
+boosts :: [(Api.Boost, [(Int, Int)])]
+boosts =
+  [ (Api.DoubleLetter, symmetry [(0, 3), (2, 6), (3, 7)])
+  , (Api.TripleLetter, symmetry [(1, 5), (5, 5)])
+  , (Api.DoubleWord, symmetry [(i, i) | i <- [1..4]])
+  , (Api.TripleWord, symmetry [(0, 0), (0, 7)])
+  ]
+
 main :: IO ()
 main = do
   tvState <- newTVarIO initialState
@@ -110,4 +142,12 @@ main = do
   where
     initialState = State
       { stClients = []
+      , stBoardSize = (15, 15)
+      , stBoard =
+        Map.fromList
+          [((i,j), Api.Blank Nothing) | i <- [0..14], j <- [0..14]]
+        `Map.union`
+          Map.fromList
+            [(ij, Api.Blank $ Just boost) | (boost, ijs) <- boosts, ij <- ijs]
+      , stBag = []
       }
