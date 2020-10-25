@@ -2,35 +2,40 @@ module Component.Board (new) where
 
 import Prelude
 import Data.Array((..))
-import Effect.Class (class MonadEffect)
 
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
+import React.Basic (JSX)
+import React.Basic.Classic (Self, createComponent, make)
+import React.Basic.DOM as R
 
 import Component.Letter as Letter
 
-type Action = Void
+type Props = Unit
 type State = Unit
-type Input = Unit
-type Slots = ()
 
-render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
-render _state =
-  HH.table [HP.classes [HH.ClassName "board"]] $ do
-    row <- 0..14
-    pure $ HH.tr_ $ do
-      col <-  0..14
-      pure $ HH.td_ [HH.text "X"]
+render :: Self Props State -> JSX
+render self =
+  R.table
+  { className: "board"
+  , children: do
+     row <- 0..14
+     pure $ R.tr
+      { children: do
+          col <- 0..14
+          pure $ R.td
+            { children:
+              [ Letter.new
+                { letter: "X"
+                , value: 10
+                }
+              ]
+            }
+      }
+  }
 
-handleAction :: forall o m. Action -> H.HalogenM State Action Slots o m Unit
-handleAction = absurd
-
-new :: forall q o m. MonadEffect m => H.Component HH.HTML q Input o m
-new = H.mkComponent
-  { initialState: \_input -> unit
+new :: Props -> JSX
+new = make (createComponent "Board")
+  { initialState: unit
   , render
-  , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
   }
 
 -- vim: et ts=2 sts=2 sw=2

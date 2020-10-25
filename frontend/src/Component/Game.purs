@@ -2,43 +2,37 @@ module Component.Game (new) where
 
 import Prelude
 
-import Data.Symbol (SProxy(..))
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
+import React.Basic (JSX)
+import React.Basic.Classic (Self, createComponent, make)
+import React.Basic.DOM as R
 
 import Component.Board as Board
 import Component.Placeholder as UserList
 import Component.Placeholder as Letters
 
-import Effect.Class (class MonadEffect)
-
-type Action = Void
+type Props = Unit
 type State = Unit
-type Input = Unit
-type Slots =
-  ( userlist :: forall q. H.Slot q Void Int
-  , board    :: forall q. H.Slot q Void Int
-  , letters  :: forall q. H.Slot q Void Int
-  )
 
-render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
-render state = HH.div [HP.classes [HH.ClassName "game"]]
-  [ HH.slot (SProxy :: SProxy "userlist") 0 (UserList.new "user-list") unit absurd
-  , HH.div [HP.classes [HH.ClassName "main"]]
-    [ HH.slot (SProxy :: SProxy "board") 1 Board.new unit absurd
-    , HH.slot (SProxy :: SProxy "letters") 2 (Letters.new "letters") unit absurd
+render :: Self Props State -> JSX
+render self =
+  R.div
+  { className: "game"
+  , children:
+    [ UserList.new {title: "user-list"}
+    , R.div
+      { className: "main"
+      , children:
+        [ Board.new unit
+        , Letters.new {title: "letters"}
+        ]
+      }
     ]
-  ]
+  }
 
-handleAction :: forall o m. Action -> H.HalogenM State Action Slots o m Unit
-handleAction = absurd
-
-new :: forall q o m. MonadEffect m => H.Component HH.HTML q Input o m
-new = H.mkComponent
-  { initialState: \_input -> unit
+new :: Props -> JSX
+new = make (createComponent "Game")
+  { initialState: unit
   , render
-  , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
   }
 
 -- vim: et ts=2 sts=2 sw=2

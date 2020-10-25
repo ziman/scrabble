@@ -7,7 +7,9 @@
   , "argonaut-codecs"
   , "http-methods"
   , "websocket-moderate"
-  , "halogen"
+  , "react-basic"
+  , "react-basic-classic"
+  , "react-basic-dom"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
