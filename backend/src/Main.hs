@@ -1,7 +1,5 @@
 module Main where
 
-import GHC.Generics
-
 import Data.Functor ((<&>))
 import Data.Char (isPunctuation, isSpace)
 import Data.Monoid (mappend)
@@ -11,9 +9,6 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import qualified Data.ByteString as BS
 
-import Data.Aeson.Casing
-import qualified Data.Aeson as Aeson
-
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader
@@ -21,7 +16,10 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.Class
 import Control.Concurrent.STM
 
+import qualified Data.Aeson as Aeson
 import qualified Network.WebSockets as WS
+
+import qualified Api
 
 data Client = Client
   { clName :: Text
@@ -40,33 +38,7 @@ data Env = Env
 data Error
   = ClientError Text  -- keep the connection
   | GeneralError Text  -- kill the connection
-  deriving (Eq, Ord, Show, Generic)
-
-jsonOptions :: Aeson.Options
-jsonOptions = (aesonPrefix camelCase)
-  { Aeson.sumEncoding = Aeson.defaultTaggedObject
-  }
-
-data Message_C2S
-  = Join
-    { mcsPlayerName :: Text
-    }
-  deriving (Eq, Ord, Show, Generic)
-
-instance Aeson.FromJSON Message_C2S where
-  parseJSON = Aeson.genericParseJSON jsonOptions
-
-data Message_S2C
-  = Update
-    { mscClients :: [Text]
-    }
-  | Error
-    { mscMessage :: Text
-    }
-  deriving (Eq, Ord, Show, Generic)
-
-instance Aeson.ToJSON Message_S2C where
-  toJSON = Aeson.genericToJSON jsonOptions
+  deriving (Eq, Ord, Show)
 
 type Api = ReaderT Env (ExceptT Error IO)
 
@@ -79,7 +51,7 @@ throwClient = throw . ClientError . Text.pack
 throwGeneral :: String -> Api a
 throwGeneral = throw . GeneralError . Text.pack
 
-recv :: Api Message_C2S
+recv :: Api Api.Message_C2S
 recv = do
   conn <- envConnection <$> ask
   msgBS <- liftIO $ WS.receiveData conn
@@ -87,7 +59,7 @@ recv = do
     Nothing -> throwGeneral $ "can't decode: " ++ show msgBS
     Just msg -> pure msg
 
-send :: Message_S2C -> Api ()
+send :: Api.Message_S2C -> Api ()
 send msg = do
   conn <- envConnection <$> ask
   liftIO $ WS.sendTextData conn (Aeson.encode msg)
@@ -96,20 +68,27 @@ loop :: Api () -> Api a
 loop api = do
   liftCatch catchE api $ \case
     ClientError msg -> do
-      send Error{ mscMessage = msg }
+      send Api.Error{ mscMessage = msg }
       loop api
     GeneralError msg -> throw $ GeneralError msg
   loop api
 
 clientLoop :: Api ()
 clientLoop = do
-  send $ Update{ mscClients = ["hello", "world"] }
+  send $ Api.Update $ Api.State
+    { Api.stPlayers = ["hello", "world"]
+    , Api.stBoard = Api.Board
+      { bRows = 15
+      , bCols = 15
+      , bCells = [[]]
+      }
+    , Api.stLetters = []
+    }
   loop $ recv >>= handle
 
-handle :: Message_C2S -> Api ()
-handle Join{..} = do
+handle :: Api.Message_C2S -> Api ()
+handle Api.Join{..} = do
   liftIO $ print mcsPlayerName
-  send $ Update{ mscClients = ["woo", "boo"] }
 
 application :: TVar State -> WS.ServerApp
 application tvState pending = do

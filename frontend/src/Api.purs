@@ -63,7 +63,7 @@ type State =
 
 data Message_S2C
   = Error { message :: String }
-  | Update State
+  | Update { state :: State }
 
 instance msg_s2c_DecodeJson :: DecodeJson Message_S2C where
   decodeJson json = do
