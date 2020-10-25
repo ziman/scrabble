@@ -1,14 +1,14 @@
 module Component.Board (new) where
 
 import Prelude
+import Data.Array((..))
+import Effect.Class (class MonadEffect)
 
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 
-import Data.Array((..))
-
-import Effect.Class (class MonadEffect)
+import Component.Letter as Letter
 
 type Action = Void
 type State = Unit
