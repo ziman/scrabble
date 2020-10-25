@@ -13,6 +13,7 @@
   , "react-basic-classic"
   , "react-basic-dom"
   , "matrices"
+  , "exceptions"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
