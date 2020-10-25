@@ -6,32 +6,47 @@ import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 
+import Component.Login as Login
 import Component.Board as Board
 import Component.Placeholder as UserList
 import Component.Placeholder as Letters
 
 type Props = Unit
-type State = Unit
+type Cookie = String
+data State
+  = LoggedOut
+  | LoggedIn Cookie
 
 render :: Self Props State -> JSX
 render self =
-  R.div
-  { className: "game"
-  , children:
-    [ UserList.new {title: "user-list"}
-    , R.div
-      { className: "main"
+  case self.state of
+    LoggedOut ->
+      R.div
+      { className: "game"
       , children:
-        [ Board.new unit
-        , Letters.new {title: "letters"}
+        [ Login.new
+          { onSubmit: \_playerName -> pure unit
+          }
         ]
       }
-    ]
-  }
+    LoggedIn _cookie ->
+      R.div
+      { className: "game"
+      , children:
+        [ UserList.new {title: "user-list"}
+        , R.div
+          { className: "main"
+          , children:
+            [ Board.new unit
+            , Letters.new {title: "letters"}
+            ]
+          }
+        ]
+      }
 
 new :: Props -> JSX
 new = make (createComponent "Game")
-  { initialState: unit
+  { initialState: LoggedOut
   , render
   }
 
