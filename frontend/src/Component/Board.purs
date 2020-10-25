@@ -18,18 +18,22 @@ render self =
   R.table
   { className: "board"
   , children:
-      self.props.cells <#> \row ->
-        R.tr
-        { children:
-            row <#> \cell ->
-              R.td
-              { children:
-                  case cell of
-                    Api.Blank Nothing -> []
-                    Api.Blank (Just boost) -> [R.text "B"]
-                    Api.Played letter -> [Letter.new letter]
-              }
-        }
+    [ R.tbody
+      { children:
+        self.props.cells <#> \row ->
+          R.tr
+          { children:
+              row <#> \cell ->
+                R.td
+                { children:
+                    case cell of
+                      Api.Blank Nothing -> []
+                      Api.Blank (Just boost) -> [R.text "B"]
+                      Api.Played letter -> [Letter.new letter]
+                }
+          }
+      }
+    ]
   }
 
 new :: Props -> JSX

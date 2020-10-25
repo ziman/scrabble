@@ -18,9 +18,9 @@ type Letter =
 data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
 
 instance boostDecodeJson :: DecodeJson Boost where
-  decodeJson json = do
-    obj <- decodeJson json
-    obj .: "tag" >>= case _ of
+  decodeJson json =
+    -- decode via String
+    decodeJson json >>= case _ of
       "DoubleLetter" -> pure DoubleLetter
       "TripleLetter" -> pure TripleLetter
       "DoubleWord" -> pure DoubleWord

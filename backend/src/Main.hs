@@ -203,9 +203,9 @@ main = do
       , stBoardSize = (15, 15)
       , stBoard =
         Map.fromList
-          [((i,j), Api.Blank Nothing) | i <- [0..14], j <- [0..14]]
+          [(ij, Api.Blank $ Just boost) | (boost, ijs) <- boosts, ij <- ijs]
         `Map.union`
           Map.fromList
-            [(ij, Api.Blank $ Just boost) | (boost, ijs) <- boosts, ij <- ijs]
+            [((i,j), Api.Blank Nothing) | i <- [0..14], j <- [0..14]]
       , stBag = []
       }
