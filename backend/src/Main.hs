@@ -33,12 +33,16 @@ data Client = Client
   , clCookie :: Api.Cookie
   }
 
+instance Show Client where
+  show c = show (clName c, clCookie c, clScore c, clLetters c)
+
 data State = State
   { stClients :: Map Api.Cookie Client
   , stBoardSize :: (Int, Int)
   , stBoard :: Map (Int, Int) Api.Cell
   , stBag :: [Api.Letter]
   }
+  deriving Show
 
 data Env = Env
   { envConnection :: WS.Connection
@@ -114,9 +118,7 @@ sendStateUpdate = do
     }
 
 clientLoop :: Api ()
-clientLoop = do
-  sendStateUpdate
-  loop $ recv >>= handle
+clientLoop = loop $ recv >>= handle
 
 handle :: Api.Message_C2S -> Api ()
 handle Api.Join{mcsPlayerName} = do
@@ -150,7 +152,6 @@ handle Api.Join{mcsPlayerName} = do
             }
 
   sendStateUpdate
-  liftIO $ print mcsPlayerName
 
 application :: TVar State -> WS.ServerApp
 application tvState pending = do
