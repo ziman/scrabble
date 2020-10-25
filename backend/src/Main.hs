@@ -1,7 +1,8 @@
 module Main where
 
 import System.Random
-import Data.Functor ((<&>))
+import Data.Functor
+import Data.Function
 import Data.Char (isPunctuation, isSpace)
 import Data.Monoid (mappend)
 import Data.Text (Text)
@@ -118,7 +119,37 @@ clientLoop = do
   loop $ recv >>= handle
 
 handle :: Api.Message_C2S -> Api ()
-handle Api.Join{..} = do
+handle Api.Join{mcsPlayerName} = do
+  tvState <- envState <$> ask
+  cookie <- envCookie <$> ask
+  connection <- envConnection <$> ask
+  liftIO $ atomically $ do
+    st <- readTVar tvState
+
+    -- first check if the username happens to be an old cookie
+    let oldCookie = Api.Cookie mcsPlayerName
+    case Map.lookup oldCookie (stClients st) of
+      -- it is the old cookie, take over session
+      Just client ->
+        writeTVar tvState $
+          st{ stClients = (stClients st)
+            & Map.insert cookie client{ clCookie = cookie }
+            & Map.delete oldCookie
+            }
+
+      Nothing ->
+        writeTVar tvState $
+          st{ stClients = (stClients st)
+            & Map.insert cookie Client
+              { clName = mcsPlayerName
+              , clConnection = connection
+              , clLetters = []
+              , clScore = 0
+              , clCookie = cookie
+              }
+            }
+
+  sendStateUpdate
   liftIO $ print mcsPlayerName
 
 application :: TVar State -> WS.ServerApp
