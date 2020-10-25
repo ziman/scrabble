@@ -3,11 +3,11 @@
   [ "console"
   , "effect"
   , "psci-support"
-  , "react-basic"
   , "affjax"
   , "argonaut-codecs"
   , "http-methods"
   , "websocket-moderate"
+  , "halogen"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
