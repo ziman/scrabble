@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 26a652cf2de3193a149e7ae3a12af8587afcef19b2bac13fa01397363570fe97
+-- hash: 5eb6227c180e62bc64578c0bb0a616713331aa8e107367c56b790e31e618e216
 
 name:           scrabble
 version:        0.1.0.0
@@ -36,6 +36,7 @@ executable backend
     , base >=4.7 && <5
     , bytestring
     , containers
+    , random
     , stm
     , text
     , transformers

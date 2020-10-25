@@ -1,5 +1,6 @@
 module Main where
 
+import System.Random
 import Data.Functor ((<&>))
 import Data.Char (isPunctuation, isSpace)
 import Data.Monoid (mappend)
@@ -23,25 +24,25 @@ import qualified Network.WebSockets as WS
 
 import qualified Api
 
-type Letter = Text
-
 data Client = Client
   { clName :: Text
   , clConnection :: WS.Connection
-  , clLetters :: [Letter]
+  , clLetters :: [Api.Letter]
   , clScore :: Int
+  , clCookie :: Api.Cookie
   }
 
 data State = State
-  { stClients :: [Client]
+  { stClients :: Map Api.Cookie Client
   , stBoardSize :: (Int, Int)
   , stBoard :: Map (Int, Int) Api.Cell
-  , stBag :: [Letter]
+  , stBag :: [Api.Letter]
   }
 
 data Env = Env
   { envConnection :: WS.Connection
   , envState :: TVar State
+  , envCookie :: Api.Cookie
   }
 
 data Error
@@ -82,17 +83,38 @@ loop api = do
     GeneralError msg -> throw $ GeneralError msg
   loop api
 
+getClient :: Api Client
+getClient = do
+  cookie <- envCookie <$> ask
+  st <- liftIO . readTVarIO =<< (envState <$> ask)
+  case Map.lookup cookie (stClients st) of
+    Nothing -> throwGeneral "client not found"
+    Just client -> pure client
+
+sendStateUpdate :: Api ()
+sendStateUpdate = do
+  st <- liftIO . readTVarIO =<< (envState <$> ask)
+  client <- getClient
+
+  let (rows, cols) = stBoardSize st
+  send $ Api.Update $ Api.State
+    { Api.stPlayers = map clName $ Map.elems $ stClients st
+    , Api.stBoard = Api.Board
+      { bRows = rows
+      , bCols = cols
+      , bCells =
+        [ [ stBoard st Map.! (i, j)
+          | j <- [0..cols-1]
+          ]
+        | i <- [0..rows-1]
+        ]
+      }
+    , Api.stLetters = clLetters client
+    }
+
 clientLoop :: Api ()
 clientLoop = do
-  send $ Api.Update $ Api.State
-    { Api.stPlayers = ["hello", "world"]
-    , Api.stBoard = Api.Board
-      { bRows = 15
-      , bCols = 15
-      , bCells = [[]]
-      }
-    , Api.stLetters = []
-    }
+  sendStateUpdate
   loop $ recv >>= handle
 
 handle :: Api.Message_C2S -> Api ()
@@ -103,9 +125,11 @@ application :: TVar State -> WS.ServerApp
 application tvState pending = do
   connection <- WS.acceptRequest pending
   WS.withPingThread connection 30 (return ()) $ do
+    cookie <- randomIO
     let env = Env
           { envConnection = connection
           , envState      = tvState
+          , envCookie     = cookie
           }
     runExceptT (runReaderT clientLoop env) >>= \case
       Left err -> putStrLn $ "error: " ++ show err
@@ -141,7 +165,7 @@ main = do
     $ application tvState
   where
     initialState = State
-      { stClients = []
+      { stClients = Map.empty
       , stBoardSize = (15, 15)
       , stBoard =
         Map.fromList

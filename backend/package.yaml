@@ -17,6 +17,7 @@ dependencies:
 - aeson-casing
 - stm
 - bytestring
+- random
 
 ghc-options:
 - -threaded
