@@ -1,3 +1,43 @@
 body {
-    font-family: 'Open Sans', sans-serif;
+	font-family: 'Open Sans', sans-serif;
 }
+
+.placeholder {
+	outline: 1px dotted red;
+}
+
+.game {
+}
+
+.letter {
+	width: 50px;
+	height: 50px;
+	display: inline-block;
+	position: relative;
+}
+
+.letter > .points {
+	position: relative;
+	right: 5px;
+	bottom: 5px;
+}
+
+.user-list {
+	width: 150px;
+	float: left;
+}
+
+.main {
+	margin-left: 160px;
+}
+
+.main > .board {
+	height: 200px;
+}
+
+.main > .letters {
+}
+
+/*
+ * vim: ts=2 sts=2 sw=2
+ */
