@@ -1,10 +1,13 @@
 module Api where
 
-import Data.Generic.Rep (class Generic)
-import Data.Argonaut.Decode.Generic.Rep (genericDecodeJson)
-import Data.Argonaut.Encode.Generic.Rep (genericEncodeJson)
-import Data.Argonaut.Decode.Class (class DecodeJson)
-import Data.Argonaut.Encode.Class (class EncodeJson)
+import Prelude
+import Data.Either (Either(..))
+import Foreign.Object as Object
+import Data.Argonaut.Core (caseJsonObject, fromString, fromObject, Json)
+import Data.Argonaut.Decode (class DecodeJson, decodeJson)
+import Data.Argonaut.Encode (class EncodeJson, encodeJson)
+import Data.Argonaut.Decode.Error (JsonDecodeError(..))
+import Data.Argonaut.Decode.Combinators ((.:))
 
 type Letter =
   { letter :: String
@@ -18,15 +21,23 @@ data Message_S2C
   = Update { clients :: Array String }
   | Error { message :: String }
 
-derive instance genericMessage_S2C :: Generic Message_S2C _
-
 instance msg_s2c_DecodeJson :: DecodeJson Message_S2C where
-  decodeJson x = genericDecodeJson x  -- must be eta-long
+  decodeJson json = do
+    obj <- decodeJson json
+    obj .: "tag" >>= case _ of
+      "Update" -> Update <$> decodeJson json
+      "Error" -> Error <$> decodeJson json
+      tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
 data Message_C2S
   = Join { playerName :: String }
 
-derive instance genericMessage_C2S :: Generic Message_C2S _
-
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
-  encodeJson x = genericEncodeJson x  -- must be eta-long
+  encodeJson (Join obj) = "Join" ~> obj
+
+infix 3 addTag as ~>
+addTag :: forall a. EncodeJson a => String -> a -> Json
+addTag t obj = caseJsonObject json f json
+  where
+    json = encodeJson obj
+    f obj' = fromObject $ Object.insert "tag" (fromString t) obj'
