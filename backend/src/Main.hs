@@ -3,22 +3,20 @@ module Main where
 import System.Random
 import Data.Functor
 import Data.Function
-import Data.Char (isPunctuation, isSpace)
-import Data.Monoid (mappend)
 import Data.Text (Text)
 import Data.Map.Strict (Map)
-import Data.List (stripPrefix)
 import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
-import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
 
+import Control.Exception (SomeException)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Class
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
+import qualified Control.Exception as Exception
 
 import qualified Data.Aeson as Aeson
 import qualified Network.WebSockets as WS
@@ -27,7 +25,7 @@ import qualified Api
 
 data Client = Client
   { clName :: Text
-  , clConnection :: WS.Connection
+  , clConnection :: Maybe WS.Connection
   , clLetters :: [Api.Letter]
   , clScore :: Int
   , clCookie :: Api.Cookie
@@ -53,7 +51,11 @@ data Env = Env
 data Error
   = ClientError Text  -- keep the connection
   | GeneralError Text  -- kill the connection
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Error where
+  show (ClientError msg) = "client error: " ++ Text.unpack msg
+  show (GeneralError msg) = "general error: " ++ Text.unpack msg
 
 type Api = ReaderT Env (ExceptT Error IO)
 
@@ -69,10 +71,13 @@ throwGeneral = throw . GeneralError . Text.pack
 recv :: Api Api.Message_C2S
 recv = do
   conn <- envConnection <$> ask
-  msgBS <- liftIO $ WS.receiveData conn
-  case Aeson.decode msgBS of
-    Nothing -> throwGeneral $ "can't decode: " ++ show msgBS
-    Just msg -> pure msg
+  msgBS <- liftIO $
+    (Right <$> WS.receiveData conn)
+      `Exception.catch` \e -> pure $ Left (show (e :: WS.ConnectionException))
+  case Aeson.decode <$> msgBS of
+    Left err -> throwGeneral $ "can't recv: " ++ err
+    Right Nothing -> throwGeneral $ "can't decode: " ++ show msgBS
+    Right (Just msg) -> pure msg
 
 send :: Api.Message_S2C -> Api ()
 send msg = do
@@ -120,38 +125,60 @@ sendStateUpdate = do
     }
 
 clientLoop :: Api ()
-clientLoop = loop $ recv >>= handle
+clientLoop = loop (recv >>= handle)
+
+-- send close and receive all remaining messages
+closeConnection :: Api.Cookie -> WS.Connection -> IO ()
+closeConnection cookie conn =
+  void $ forkIO $ do
+    Exception.handle @WS.ConnectionException (\_ -> pure ()) $ do
+      WS.sendClose conn (Aeson.encode $ Api.Error "connection replaced")
+      forever (void $ WS.receive conn)
+    putStrLn $ show cookie ++ ": connection closed"
 
 handle :: Api.Message_C2S -> Api ()
 handle Api.Join{mcsPlayerName} = do
   tvState <- envState <$> ask
   cookie <- envCookie <$> ask
   connection <- envConnection <$> ask
-  liftIO $ atomically $ do
-    st <- readTVar tvState
 
-    -- first check if the username happens to be an old cookie
-    let oldCookie = Api.Cookie mcsPlayerName
-    case Map.lookup oldCookie (stClients st) of
-      -- it is the old cookie, take over session
-      Just client ->
-        writeTVar tvState $
-          st{ stClients = (stClients st)
-            & Map.insert cookie client{ clCookie = cookie }
-            & Map.delete oldCookie
-            }
+  liftIO $ do
+    result <- atomically $ do
+      st <- readTVar tvState
 
-      Nothing ->
-        writeTVar tvState $
-          st{ stClients = (stClients st)
-            & Map.insert cookie Client
-              { clName = mcsPlayerName
-              , clConnection = connection
-              , clLetters = []
-              , clScore = 0
-              , clCookie = cookie
+      -- first check if the username happens to be an old cookie
+      let oldCookie = Api.Cookie mcsPlayerName
+      case Map.lookup oldCookie (stClients st) of
+        -- it is the old cookie, take over session
+        Just oldClient -> do
+          writeTVar tvState $
+            st{ stClients = stClients st
+              & Map.insert cookie oldClient{ clCookie = cookie }
+              & Map.delete oldCookie
               }
-            }
+          pure $ Left oldClient
+
+        Nothing -> do
+          writeTVar tvState $
+            st{ stClients = stClients st
+              & Map.insert cookie Client
+                { clName = mcsPlayerName
+                , clConnection = Just connection
+                , clLetters = []
+                , clScore = 0
+                , clCookie = cookie
+                }
+              }
+          pure $ Right ()
+
+    case result of
+      Left client -> do
+        putStrLn $ show cookie ++ " resurrects client " ++ show (clCookie client, clName client)
+        case clConnection client of
+          Just conn -> closeConnection (clCookie client) conn
+          Nothing -> putStrLn $ "  -> old client already dead"
+
+      Right () -> putStrLn $ show cookie ++ " is a new client"
 
   sendStateUpdate
 
@@ -165,9 +192,25 @@ application tvState pending = do
           , envState      = tvState
           , envCookie     = cookie
           }
-    runExceptT (runReaderT clientLoop env) >>= \case
-      Left err -> putStrLn $ "error: " ++ show err
-      Right () -> pure ()
+
+    result <-
+      runExceptT (runReaderT clientLoop env)
+        `Exception.catch`
+          \e -> pure $ Left $ GeneralError $ Text.pack $ show (e :: SomeException)
+
+    case result of
+      Left err -> putStrLn $ "client " ++ show cookie ++ ": " ++ show err
+      Right () -> putStrLn $ "client " ++ show cookie ++ " quit quietly"
+
+    -- mark client as dead
+    atomically $ do
+      modifyTVar tvState $ \st ->
+        st{ stClients =
+            Map.adjust
+              (\c -> c{ clConnection = Nothing })
+              cookie
+              (stClients st)
+          }
 
 -- repeats are fine
 symmetry :: [(Int, Int)] -> [(Int, Int)]
