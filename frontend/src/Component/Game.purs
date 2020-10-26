@@ -62,7 +62,11 @@ render self =
         , R.div
           { className: "main"
           , children:
-            [ Board.new state.board
+            [ Board.new
+              { board: state.board
+              , onLetterDrop: \i j letter -> do
+                  pure unit
+              }
             , Letters.new {letters: state.letters}
             ]
           }

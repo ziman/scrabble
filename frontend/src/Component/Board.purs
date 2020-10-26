@@ -6,10 +6,13 @@ import Data.Array (zip, (..), length)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..))
 
+import Effect (Effect)
+
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 import React.Basic.DOM.Events (capture_, capture, nativeEvent)
+import React.Basic.Events (handler_)
 
 import Data.MediaType.Common as MediaType
 import Web.HTML.Event.DragEvent as DragEvent
@@ -22,7 +25,10 @@ import Api as Api
 import Utils as Utils
 import Component.Letter as Letter
 
-type Props = Api.Board
+type Props =
+  { board :: Api.Board
+  , onLetterDrop :: Int -> Int -> Api.Letter -> Effect Unit
+  }
 type State =
   { dropCoords :: Maybe (Tuple Int Int)
   }
@@ -34,7 +40,7 @@ render self =
   , children:
     [ R.tbody
       { children:
-        enumerate self.props.cells <#> \(Tuple i row) ->
+        enumerate self.props.board.cells <#> \(Tuple i row) ->
           R.tr
           { children:
               enumerate row <#> \(Tuple j cell) ->
@@ -43,7 +49,7 @@ render self =
                   (
                     case self.state.dropCoords of
                       Just ij | ij == Tuple i j -> "drop "
-                      _ -> ""
+                      _ -> "nondrop "
                   ) <> (
                     case cell.boost of
                       Just Api.DoubleLetter -> "double-letter"
@@ -53,10 +59,16 @@ render self =
                       Nothing -> "cell"
                   )
 
-                , onDragOver: capture_ do
-                    self.setState \s -> s{ dropCoords = Just (Tuple i j) }
+                , onDragOver: capture_ $ pure unit
+
+                , onDragEnter:
+                    case cell.letter of
+                      Just _ -> handler_ $ pure unit  -- do not preventDefault => reject drop
+                      Nothing -> capture_ $
+                        self.setState \s -> s{ dropCoords = Just (Tuple i j) }
 
                 , onDrop: capture nativeEvent \evt -> do
+                    self.setState \s -> s{ dropCoords = Nothing }
                     case DragEvent.fromEvent evt of
                       Nothing -> pure unit
                       Just dragEvt -> do
@@ -68,7 +80,7 @@ render self =
                           Left err -> Utils.log err
                           Right json -> case decodeJson json of
                             Left err -> Utils.log $ show err
-                            Right letter -> Utils.log $ show (letter :: Api.Letter)
+                            Right letter -> self.props.onLetterDrop i j letter
 
                 , children:
                     case cell.letter of

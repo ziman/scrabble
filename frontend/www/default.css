@@ -46,10 +46,6 @@ ul.letters {
   margin: 15px auto;
 }
 
-.drop {
-  background-color: red !important;
-}
-
 table.board {
   border-spacing: 0px;
   border-collapse: collapse;
@@ -91,6 +87,14 @@ td.double-word {
 
 td.triple-word {
   background-color: #9e9;
+}
+
+td.drop {
+  outline: 2px solid black;
+  /* background-color: black !important; */
+}
+
+td.nondrop {
 }
 
 /*
