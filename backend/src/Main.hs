@@ -155,21 +155,24 @@ handle Api.Join{mcsPlayerName} = do
         Just oldClient -> do
           writeTVar tvState $
             st{ stClients = stClients st
-              & Map.insert cookie oldClient{ clCookie = cookie }
-              & Map.delete oldCookie
+                & Map.insert cookie oldClient{ clCookie = cookie }
+                & Map.delete oldCookie
               }
           pure $ Left oldClient
 
         Nothing -> do
+          -- create a new client
+          let (letters, rest) = splitAt 8 (stBag st)
           writeTVar tvState $
             st{ stClients = stClients st
-              & Map.insert cookie Client
-                { clName = mcsPlayerName
-                , clConnection = Just connection
-                , clLetters = []
-                , clScore = 0
-                , clCookie = cookie
-                }
+                & Map.insert cookie Client
+                  { clName = mcsPlayerName
+                  , clConnection = Just connection
+                  , clLetters = letters
+                  , clScore = 0
+                  , clCookie = cookie
+                  }
+              , stBag = rest
               }
           pure $ Right ()
 
