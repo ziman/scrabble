@@ -19,7 +19,7 @@ render self =
   , children: do
       letter <- self.props.letters
       pure $ R.li
-        { children: [Letter.new letter]
+        { children: [Letter.new {letter, draggable: true}]
         }
   }
 

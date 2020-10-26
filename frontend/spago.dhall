@@ -11,8 +11,8 @@
   , "react-basic"
   , "react-basic-classic"
   , "react-basic-dom"
-  , "matrices"
   , "exceptions"
+  , "media-types"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]

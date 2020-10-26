@@ -36,7 +36,7 @@ render self =
                 , children:
                     case cell.letter of
                       Nothing -> []
-                      Just letter -> [Letter.new letter]
+                      Just letter -> [Letter.new {letter, draggable: false}]
                 }
           }
       }
