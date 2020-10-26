@@ -42,7 +42,8 @@ a.letter > span.value {
   height: 200px;
 }
 
-.main > .letters {
+ul.letters {
+  margin: 15px auto;
 }
 
 table.board {
@@ -60,12 +61,12 @@ table.board td {
 ul.player-list {
   width: 150px;
   float: left;
+  margin: 0px;
 }
 
 ul.player-list, ul.letters {
   list-style-type: none;
   padding: 0px;
-  margin: 0px;
 }
 
 ul.letters li {
