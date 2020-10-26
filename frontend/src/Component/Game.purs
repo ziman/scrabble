@@ -14,8 +14,8 @@ import Api as Api
 import Utils as Utils
 import Component.Login as Login
 import Component.Board as Board
+import Component.Letters as Letters
 import Component.PlayerList as PlayerList
-import Component.Placeholder as Letters
 
 type Props = Unit
 data State
@@ -63,7 +63,7 @@ render self =
           { className: "main"
           , children:
             [ Board.new state.board
-            , Letters.new {title: "letters"}
+            , Letters.new {letters: state.letters}
             ]
           }
         ]
