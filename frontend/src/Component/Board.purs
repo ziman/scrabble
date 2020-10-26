@@ -6,8 +6,14 @@ import Data.Maybe (Maybe(..))
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
+import React.Basic.DOM.Events (capture, nativeEvent)
+
+import Data.MediaType.Common as MediaType
+import Web.HTML.Event.DragEvent as DragEvent
+import Web.HTML.Event.DataTransfer as DataTransfer
 
 import Api as Api
+import Utils as Utils
 import Component.Letter as Letter
 
 type Props = Api.Board
@@ -32,6 +38,21 @@ render self =
                       Just Api.DoubleWord -> "double-word"
                       Just Api.TripleWord -> "triple-word"
                       Nothing -> "cell"
+
+                , onDragOver: capture nativeEvent \evt -> do
+                    case DragEvent.fromEvent evt of
+                      Nothing -> pure unit
+                      Just dragEvt -> do
+                        Utils.log $ show $ DataTransfer.types (DragEvent.dataTransfer dragEvt)
+                        d <- DataTransfer.getData MediaType.textPlain (DragEvent.dataTransfer dragEvt)
+                        Utils.log d
+
+                    Utils.log "drag over!"
+                    pure unit
+
+                , onDrop: capture nativeEvent \evt -> do
+                    Utils.log "drop!"
+                    pure unit
 
                 , children:
                     case cell.letter of
