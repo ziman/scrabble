@@ -9,17 +9,29 @@ body {
 .game {
 }
 
-span.letter {
+a.letter {
   width: 40px;
   height: 40px;
   display: inline-block;
   position: relative;
+  border-radius: 3px;
+  border: 1px solid #888;
+  line-height: 40px;
+  font-weight: bold;
+  font-size: 20px;
+  text-align: center;
+  color: black;
+  text-decoration: none;
 }
 
-span.letter > span.value {
-  position: relative;
-  right: 5px;
-  bottom: 5px;
+a.letter > span.value {
+  position: absolute;
+  float: right;
+  right: 3px;
+  bottom: 2px;
+  font-size: 10px;
+  font-weight: normal;
+  line-height: 10px;
 }
 
 .main {

@@ -13,8 +13,9 @@ type State = Unit
 
 render :: Self Props State -> JSX
 render self =
-  R.span
+  R.a
   { className: "letter"
+  , href: "#"
   , children:
     [ R.span
       { className: "value"
