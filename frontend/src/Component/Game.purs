@@ -17,14 +17,15 @@ import Component.Board as Board
 import Component.Letters as Letters
 import Component.PlayerList as PlayerList
 
+type WebSocket = WS.Capabilities Effect Api.Message_C2S 
 type Props = Unit
 data State
   = LoggedOut
-  | LoggedIn Api.State
+  | LoggedIn WebSocket Api.State
 
-onMessage :: Self Props State -> WS.Capabilities Effect Api.Message_C2S -> Api.Message_S2C -> Effect Unit
+onMessage :: Self Props State -> WebSocket -> Api.Message_S2C -> Effect Unit
 onMessage self sock (Api.Update u) = do
-  self.setState \s -> LoggedIn u.state
+  self.setState \s -> LoggedIn sock u.state
 
 onMessage self sock msg = pure unit
 
@@ -54,7 +55,7 @@ render self =
           }
         ]
       }
-    LoggedIn state ->
+    LoggedIn sock state ->
       R.div
       { className: "game"
       , children:
@@ -64,8 +65,8 @@ render self =
           , children:
             [ Board.new
               { board: state.board
-              , onLetterDrop: \i j letter -> do
-                  pure unit
+              , onLetterDrop: \i j letter ->
+                  sock.send $ Api.Drop {i, j, letter}
               }
             , Letters.new {letters: state.letters}
             ]
