@@ -13,9 +13,10 @@ import Data.MediaType.Common as MediaType
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DataTransfer as DataTransfer
 
-import Api as Api
 import Data.Argonaut.Core (stringify)
 import Data.Argonaut.Encode (encodeJson)
+
+import Api as Api
 
 type Props =
   { letter :: Api.Letter
