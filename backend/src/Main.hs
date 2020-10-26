@@ -131,7 +131,7 @@ clientLoop = loop (recv >>= handle)
 closeConnection :: Api.Cookie -> WS.Connection -> IO ()
 closeConnection cookie conn =
   void $ forkIO $ do
-    Exception.handle @WS.ConnectionException (\_ -> pure ()) $ do
+    Exception.handle @SomeException (\_ -> pure ()) $ do
       WS.sendClose conn (Aeson.encode $ Api.Error "connection replaced")
       forever (void $ WS.receive conn)
     putStrLn $ show cookie ++ ": connection closed"
