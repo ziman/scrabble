@@ -18,6 +18,8 @@ dependencies:
 - stm
 - bytestring
 - random
+- vector
+- vector-shuffling
 
 ghc-options:
 - -threaded

@@ -7,6 +7,8 @@ import Data.Text (Text)
 import Data.Map.Strict (Map)
 import qualified Data.Text as Text
 import qualified Data.Map.Strict as Map
+import qualified Data.Vector as Vec
+import qualified VectorShuffling.Immutable as Vec
 
 import Control.Exception (SomeException)
 import Control.Monad (forever)
@@ -237,11 +239,12 @@ boosts =
 
 main :: IO ()
 main = do
-  tvState <- newTVarIO initialState
+  g <- newStdGen
+  tvState <- newTVarIO $ initialState g
   WS.runServer "0.0.0.0" 8083
     $ application tvState
   where
-    initialState = State
+    initialState g = State
       { stClients = Map.empty
       , stBoardSize = (15, 15)
       , stBoard =
@@ -250,5 +253,56 @@ main = do
         `Map.union`
           Map.fromList
             [((i,j), Api.Blank Nothing) | i <- [0..14], j <- [0..14]]
-      , stBag = []
+      , stBag = shuffle g $ concat
+        [ replicate count (Api.Letter letter value)
+        | (letter, value, count) <- lettersCZ
+        ]
       }
+
+    shuffle g = Vec.toList . fst . flip Vec.shuffle g . Vec.fromList
+
+-- letter, value, count
+lettersCZ :: [(Text, Int, Int)]
+lettersCZ =
+  [ ("A", 1, 6)
+  , ("Á", 2, 2)
+  , ("B", 2, 2)
+  , ("C", 3, 2)
+  , ("Č", 4, 2)
+  , ("D", 2, 2)
+  , ("Ď", 8, 1)
+  , ("E", 1, 5)
+  , ("É", 5, 1)
+  , ("Ě", 5, 2)
+  , ("F", 8, 1)
+  , ("G", 8, 1)
+  , ("H", 3, 2)
+  , ("CH", 4, 2)
+  , ("I", 1, 4)
+  , ("Í", 2, 2)
+  , ("J", 2, 2)
+  , ("K", 1, 4)
+  , ("L", 1, 4)
+  , ("M", 2, 3)
+  , ("N", 1, 3)
+  , ("Ň", 6, 1)
+  , ("O", 1, 6)
+  , ("Ó", 10, 1)
+  , ("P", 1, 3)
+  , ("R", 1, 4)
+  , ("Ř", 4, 2)
+  , ("S", 1, 5)
+  , ("Š", 3, 2)
+  , ("T", 1, 4)
+  , ("Ť", 6, 1)
+  , ("U", 2, 3)
+  , ("Ů", 5, 1)
+  , ("Ú", 6, 1)
+  , ("V", 1, 3)
+  , ("X", 10, 2)
+  , ("Y", 1, 3)
+  , ("Ý", 4, 2)
+  , ("Z", 3, 2)
+  , ("Ž", 4, 2)
+  , ("*", 0, 2)
+  ]
