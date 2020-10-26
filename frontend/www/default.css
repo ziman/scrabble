@@ -46,6 +46,10 @@ ul.letters {
   margin: 15px auto;
 }
 
+.drop {
+  background-color: red !important;
+}
+
 table.board {
   border-spacing: 0px;
   border-collapse: collapse;

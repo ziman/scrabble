@@ -1,6 +1,8 @@
 module Component.Board (new) where
 
 import Prelude
+import Data.Tuple (Tuple(..))
+import Data.Array (zip, (..), length)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..))
 
@@ -21,7 +23,9 @@ import Utils as Utils
 import Component.Letter as Letter
 
 type Props = Api.Board
-type State = Unit
+type State =
+  { dropCoords :: Maybe (Tuple Int Int)
+  }
 
 render :: Self Props State -> JSX
 render self =
@@ -30,20 +34,27 @@ render self =
   , children:
     [ R.tbody
       { children:
-        self.props.cells <#> \row ->
+        enumerate self.props.cells <#> \(Tuple i row) ->
           R.tr
           { children:
-              row <#> \cell ->
+              enumerate row <#> \(Tuple j cell) ->
                 R.td
                 { className:
+                  (
+                    case self.state.dropCoords of
+                      Just ij | ij == Tuple i j -> "drop "
+                      _ -> ""
+                  ) <> (
                     case cell.boost of
                       Just Api.DoubleLetter -> "double-letter"
                       Just Api.TripleLetter -> "triple-letter"
                       Just Api.DoubleWord -> "double-word"
                       Just Api.TripleWord -> "triple-word"
                       Nothing -> "cell"
+                  )
 
-                , onDragOver: capture_ $ pure unit
+                , onDragOver: capture_ do
+                    self.setState \s -> s{ dropCoords = Just (Tuple i j) }
 
                 , onDrop: capture nativeEvent \evt -> do
                     case DragEvent.fromEvent evt of
@@ -69,9 +80,14 @@ render self =
     ]
   }
 
+enumerate :: forall a. Array a -> Array (Tuple Int a)
+enumerate xs = zip (0 .. (length xs - 1)) xs
+
 new :: Props -> JSX
 new = make (createComponent "Board")
-  { initialState: unit
+  { initialState:
+    { dropCoords: Nothing
+    }
   , render
   }
 
