@@ -1,43 +1,81 @@
 body {
-	font-family: 'Open Sans', sans-serif;
+  font-family: 'Open Sans', sans-serif;
 }
 
 .placeholder {
-	outline: 1px dotted red;
+  outline: 1px dotted red;
 }
 
 .game {
 }
 
-.letter {
-	width: 50px;
-	height: 50px;
-	display: inline-block;
-	position: relative;
+span.letter {
+  width: 40px;
+  height: 40px;
+  display: inline-block;
+  position: relative;
 }
 
-.letter > .points {
-	position: relative;
-	right: 5px;
-	bottom: 5px;
-}
-
-.user-list {
-	width: 150px;
-	float: left;
+span.letter > span.value {
+  position: relative;
+  right: 5px;
+  bottom: 5px;
 }
 
 .main {
-	margin-left: 160px;
+  margin-left: 160px;
 }
 
 .main > .board {
-	height: 200px;
+  height: 200px;
 }
 
 .main > .letters {
 }
 
+table.board {
+  border-spacing: 0px;
+  border-collapse: collapse;
+}
+
+table.board td {
+  width: 40px;
+  height: 40px;
+  border-left: 1px dotted #ccc;
+  border-top: 1px dotted #ccc;
+}
+
+ul.player-list {
+  width: 150px;
+  float: left;
+}
+
+ul.player-list, ul.letters {
+  list-style-type: none;
+  padding: 0px;
+  margin: 0px;
+}
+
+ul.letters li {
+  display: inline-block;
+}
+
+td.double-letter {
+  background-color: #fdd;
+}
+
+td.triple-letter {
+  background-color: #e99;
+}
+
+td.double-word {
+  background-color: #cfc;
+}
+
+td.triple-word {
+  background-color: #9e9;
+}
+
 /*
- * vim: ts=2 sts=2 sw=2
+ * vim: ts=2 sts=2 sw=2 et
  */

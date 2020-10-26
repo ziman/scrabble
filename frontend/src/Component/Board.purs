@@ -25,11 +25,18 @@ render self =
           { children:
               row <#> \cell ->
                 R.td
-                { children:
-                    case cell of
-                      Api.Blank Nothing -> []
-                      Api.Blank (Just boost) -> [R.text "B"]
-                      Api.Played letter -> [Letter.new letter]
+                { className:
+                    case cell.boost of
+                      Just Api.DoubleLetter -> "double-letter"
+                      Just Api.TripleLetter -> "triple-letter"
+                      Just Api.DoubleWord -> "double-word"
+                      Just Api.TripleWord -> "triple-word"
+                      Nothing -> "cell"
+
+                , children:
+                    case cell.letter of
+                      Nothing -> []
+                      Just letter -> [Letter.new letter]
                 }
           }
       }

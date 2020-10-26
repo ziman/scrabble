@@ -22,7 +22,10 @@ data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
 instance Aeson.ToJSON Boost where
   toJSON = Aeson.genericToJSON jsonOptions
 
-data Cell = Blank (Maybe Boost) | Played Letter
+data Cell = Cell
+  { cBoost :: Maybe Boost
+  , cLetter :: Maybe Letter
+  }
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.ToJSON Cell where

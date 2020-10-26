@@ -27,15 +27,10 @@ instance boostDecodeJson :: DecodeJson Boost where
       "TripleWord" -> pure TripleWord
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
-data Cell = Blank (Maybe Boost) | Played Letter
-
-instance cellDecodeJson :: DecodeJson Cell where
-  decodeJson json = do
-    obj <- decodeJson json
-    obj .: "tag" >>= case _ of
-      "Blank" -> Blank <$> (obj .: "contents" >>= decodeJson)
-      "Played" -> Played <$> (obj .: "contents" >>= decodeJson)
-      tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
+type Cell =
+  { boost :: Maybe Boost
+  , letter :: Maybe Letter
+  }
 
 type Cookie = String
 

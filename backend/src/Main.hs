@@ -252,10 +252,10 @@ main = do
       , stBoardSize = (15, 15)
       , stBoard =
         Map.fromList
-          [(ij, Api.Blank $ Just boost) | (boost, ijs) <- boosts, ij <- ijs]
+          [(ij, Api.Cell (Just boost) Nothing) | (boost, ijs) <- boosts, ij <- ijs]
         `Map.union`
           Map.fromList
-            [((i,j), Api.Blank Nothing) | i <- [0..14], j <- [0..14]]
+            [((i,j), Api.Cell Nothing Nothing) | i <- [0..14], j <- [0..14]]
       , stBag = shuffle g $ concat
         [ replicate count (Api.Letter letter value)
         | (letter, value, count) <- lettersCZ
