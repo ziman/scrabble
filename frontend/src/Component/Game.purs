@@ -14,7 +14,7 @@ import Api as Api
 import Utils as Utils
 import Component.Login as Login
 import Component.Board as Board
-import Component.Placeholder as UserList
+import Component.PlayerList as PlayerList
 import Component.Placeholder as Letters
 
 type Props = Unit
@@ -58,7 +58,7 @@ render self =
       R.div
       { className: "game"
       , children:
-        [ UserList.new {title: "user-list"}
+        [ PlayerList.new {players: state.players}
         , R.div
           { className: "main"
           , children:
