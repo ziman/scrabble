@@ -3,22 +3,14 @@ module Component.Board (new) where
 import Prelude
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Either (Either(..))
 
 import Effect (Effect)
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
-import React.Basic.DOM.Events (capture_, capture, nativeEvent)
+import React.Basic.DOM.Events (capture_)
 import React.Basic.Events (handler_)
-
-import Data.MediaType.Common as MediaType
-import Web.HTML.Event.DragEvent as DragEvent
-import Web.HTML.Event.DataTransfer as DataTransfer
-
-import Data.Argonaut.Parser (jsonParser)
-import Data.Argonaut.Decode (decodeJson)
 
 import Api as Api
 import Utils as Utils
@@ -69,20 +61,9 @@ render self =
                       Nothing -> capture_ $
                         self.setState \s -> s{ dropCoords = Just (Tuple i j) }
 
-                , onDrop: capture nativeEvent \evt -> do
+                , onDrop: Utils.dropHandler \srcSpot -> do
                     self.setState \s -> s{ dropCoords = Nothing }
-                    case DragEvent.fromEvent evt of
-                      Nothing -> pure unit
-                      Just dragEvt -> do
-                        doc <- DataTransfer.getData
-                          MediaType.applicationJSON
-                          (DragEvent.dataTransfer dragEvt)
-
-                        case jsonParser doc of
-                          Left err -> Utils.log err
-                          Right json -> case decodeJson json of
-                            Left err -> Utils.log $ show err
-                            Right srcSpot -> self.props.onLetterDrop srcSpot (Api.Board i j)
+                    self.props.onLetterDrop srcSpot (Api.Board i j)
 
                 , children:
                     case cell.letter of
