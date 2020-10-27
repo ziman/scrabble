@@ -228,22 +228,31 @@ handle Api.Drop{mcsSrc, mcsDst} = do
   player <- getPlayer
 
   case (mcsSrc, mcsDst) of
-    (Api.Letters k, Api.Board i j)
-      | Just Api.Cell
-        { Api.cBoost  = mbBoost
-        , Api.cLetter = Nothing
-        } <- Map.lookup (i, j) (stBoard st)
+    (Api.Letters k, Api.Board dstI dstJ)
+      | Just cellDst@Api.Cell{cLetter = Nothing}
+          <- Map.lookup (dstI, dstJ) (stBoard st)
       , Just (letter, rest) <- extract k (pLetters player)
       -> do
-        let cell = Api.Cell
-              { Api.cBoost  = mbBoost
-              , Api.cLetter = Just letter
-              }
         setState st
-          { stBoard = Map.insert (i, j) cell (stBoard st)
-          , stPlayers = Map.insert (pCookie player) player{ pLetters = rest } (stPlayers st)
+          { stBoard = stBoard st
+            & Map.insert (dstI, dstJ) cellDst{Api.cLetter = Just letter}
+          , stPlayers = stPlayers st
+            & Map.insert (pCookie player) player{pLetters = rest}
           }
 
+        broadcastStateUpdate
+
+    (Api.Board srcI srcJ, Api.Board dstI dstJ)
+      | Just cellDst@Api.Cell{cLetter = Nothing}
+          <- Map.lookup (dstI, dstJ) (stBoard st)
+      , Just cellSrc@Api.Cell{cLetter = Just letter}
+          <- Map.lookup (srcI, srcJ) (stBoard st)
+      -> do
+        setState st
+          { stBoard = stBoard st
+            & Map.insert (dstI, dstJ) cellDst{Api.cLetter = Just letter}
+            & Map.insert (srcI, srcJ) cellSrc{Api.cLetter = Nothing}
+          }
         broadcastStateUpdate
 
     _ -> throwSoft "can't drop there"
