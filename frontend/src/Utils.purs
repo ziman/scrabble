@@ -34,10 +34,10 @@ enumerate :: forall a. Array a -> Array (Tuple Int a)
 enumerate xs = zip (0 .. (length xs - 1)) xs
 
 rejectDrop :: EventHandler
-rejectDrop = capture_ $ pure unit
+rejectDrop = handler_ $ pure unit
 
 acceptDrop :: EventHandler
-acceptDrop = handler_ $ pure unit
+acceptDrop = capture_ $ pure unit
 
 dropHandler :: forall a. DecodeJson a => (a -> Effect Unit) -> EventHandler
 dropHandler handle = capture nativeEvent \evt ->
