@@ -133,13 +133,13 @@ application tvState pending = do
 symmetry :: [(Int, Int)] -> [(Int, Int)]
 symmetry ijs = concat
   [ [ (i, j)
-    , (15-i, j)
-    , (i, 15-j)
-    , (15-i, 15-j)
+    , (14-i, j)
+    , (i, 14-j)
+    , (14-i, 14-j)
     , (j, i)
-    , (j, 15-i)
-    , (15-j, i)
-    , (15-j, 15-i)
+    , (j, 14-i)
+    , (14-j, i)
+    , (14-j, 14-i)
     ]
   | (i, j) <- ijs
   ]

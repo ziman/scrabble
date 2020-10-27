@@ -159,19 +159,22 @@ handle :: Api.Message_C2S -> Game ()
 handle Api.Join{mcsPlayerName} = do
   st <- getState
   cookie <- getCookie
+  connection <- getConnection
 
-  -- first check if the username happens to be an old cookie
-  let oldCookie = Api.Cookie mcsPlayerName
-  case Map.lookup oldCookie (stPlayers st) of
-    -- it is the old cookie, take over session
-    Just oldPlayer -> do
+  -- check if this player already exists
+  case [p | p <- Map.elems (stPlayers st), pName p == mcsPlayerName] of
+    -- it is an existing player, take over session
+    oldPlayer:_ -> do
       log $ show cookie ++ " resurrects player " ++ show (pCookie oldPlayer, pName oldPlayer)
 
       -- replace the player
       setState st
         { stPlayers = stPlayers st
-          & Map.insert cookie oldPlayer{ pCookie = cookie }
-          & Map.delete oldCookie
+          & Map.insert cookie oldPlayer
+            { pCookie = cookie
+            , pConnection = Just connection
+            }
+          & Map.delete (pCookie oldPlayer)
         }
 
       -- close the connection in case it's still alive
@@ -179,10 +182,9 @@ handle Api.Join{mcsPlayerName} = do
         Just conn -> close conn
         Nothing -> log $ "  -> old player already dead"
 
-    Nothing -> do
+    _ -> do
       -- create a new player
       let (letters, rest) = splitAt 8 (stBag st)
-      connection <- getConnection
       setState st
         { stPlayers = stPlayers st
           & Map.insert cookie Player
