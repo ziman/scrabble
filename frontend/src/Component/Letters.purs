@@ -16,11 +16,21 @@ render :: Self Props State -> JSX
 render self =
   R.ul
   { className: "letters"
-  , children: do
+  , children: 
+    ( do
       letter <- self.props.letters
       pure $ R.li
         { children: [Letter.new {letter, draggable: true}]
         }
+    ) <> [
+      R.li
+      { children:
+        [ R.button
+          { children: [R.text "+"]
+          }
+        ]
+      }
+    ]
   }
 
 new :: Props -> JSX

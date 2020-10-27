@@ -80,6 +80,10 @@ ul.player-list, ul.letters {
 
 ul.letters li {
   display: inline-block;
+  margin-right: 3px;
+}
+
+ul.letters button {
 }
 
 td.double-letter {
