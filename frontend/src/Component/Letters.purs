@@ -35,8 +35,8 @@ render self =
             , spot: Just (Api.Letters i)
             }
           ]
-        , onDragOver: capture_ $ pure unit  -- accept drop
-        , onDragEnter: capture_ $ pure unit -- accept drop
+        , onDragOver: Utils.acceptDrop
+        , onDragEnter: Utils.acceptDrop
         }
     ) <> [
       R.li

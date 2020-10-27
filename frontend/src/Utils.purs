@@ -17,8 +17,8 @@ import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 
 import Web.HTML as Html
 import Web.HTML.Window as Window
-import React.Basic.Events (handler, EventHandler)
-import React.Basic.DOM.Events (capture, nativeEvent)
+import React.Basic.Events (handler, handler_, EventHandler)
+import React.Basic.DOM.Events (capture, capture_, nativeEvent)
 
 import Data.MediaType.Common as MediaType
 import Web.HTML.Event.DragEvent as DragEvent
@@ -32,6 +32,12 @@ log msg = liftEffect $ Console.log msg
 
 enumerate :: forall a. Array a -> Array (Tuple Int a)
 enumerate xs = zip (0 .. (length xs - 1)) xs
+
+rejectDrop :: EventHandler
+rejectDrop = capture_ $ pure unit
+
+acceptDrop :: EventHandler
+acceptDrop = handler_ $ pure unit
 
 dropHandler :: forall a. DecodeJson a => (a -> Effect Unit) -> EventHandler
 dropHandler handle = capture nativeEvent \evt ->

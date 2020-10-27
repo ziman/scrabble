@@ -10,7 +10,6 @@ import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 import React.Basic.DOM.Events (capture_)
-import React.Basic.Events (handler_)
 
 import Api as Api
 import Utils as Utils
@@ -52,12 +51,12 @@ render self =
 
                 , onDragOver:
                     case cell.letter of
-                      Just _ -> handler_ $ pure unit  -- reject drop
-                      Nothing -> capture_ $ pure unit  -- accept drop
+                      Just _ -> Utils.rejectDrop
+                      Nothing -> Utils.acceptDrop
 
                 , onDragEnter:
                     case cell.letter of
-                      Just _ -> handler_ $ pure unit  -- do not preventDefault => reject drop
+                      Just _ -> Utils.rejectDrop
                       Nothing -> capture_ $
                         self.setState \s -> s{ dropCoords = Just (Tuple i j) }
 
