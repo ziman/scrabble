@@ -73,16 +73,22 @@ playerLoop :: Api ()
 playerLoop = loop (runGame . Game.handle =<< recv)
 
 -- send close and receive all remaining messages
-closeConnection :: Api.Cookie -> WS.Connection -> IO ()
-closeConnection cookie conn =
+closeConnection :: WS.Connection -> IO ()
+closeConnection conn =
   void $ forkIO $ do
     Exception.handle @SomeException (\_ -> pure ()) $ do
       WS.sendClose conn (Aeson.encode $ Api.Error "connection replaced")
       forever (void $ WS.receive conn)
-    putStrLn $ show cookie ++ ": connection closed"
+    putStrLn $ "connection closed"
 
 runEffect :: Game.Effect -> Api ()
-runEffect = error "TODO"
+runEffect = \case
+  Game.Send conn msg ->
+    liftIO $ WS.sendTextData conn (Aeson.encode msg)
+  Game.Close conn ->
+    liftIO $ closeConnection conn
+  Game.Log msg ->
+    liftIO $ putStrLn msg
 
 runGame :: Game.Game a -> Api a
 runGame game = do
