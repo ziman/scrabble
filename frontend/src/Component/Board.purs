@@ -59,7 +59,10 @@ render self =
                       Nothing -> "cell"
                   )
 
-                , onDragOver: capture_ $ pure unit
+                , onDragOver:
+                    case cell.letter of
+                      Just _ -> handler_ $ pure unit  -- reject drop
+                      Nothing -> capture_ $ pure unit  -- accept drop
 
                 , onDragEnter:
                     case cell.letter of

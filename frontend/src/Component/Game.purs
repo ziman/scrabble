@@ -27,7 +27,8 @@ onMessage :: Self Props State -> WebSocket -> Api.Message_S2C -> Effect Unit
 onMessage self sock (Api.Update u) = do
   self.setState \s -> LoggedIn sock u.state
 
-onMessage self sock msg = pure unit
+onMessage self sock (Api.Error e) = do
+  Utils.alert e.message
 
 render :: Self Props State -> JSX
 render self =
