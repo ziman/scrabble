@@ -187,8 +187,8 @@ move :: Int -> Int -> [a] -> [a]
 move i j xs
   | i < j
   , (xsA, xsBC) <- splitAt i xs
-  , (b:xsB, c:xsC) <- splitAt (j-i) xsBC
-  = xsA ++ xsB ++ c : b : xsC
+  , (b:xsB, xsC) <- splitAt (j-i+1) xsBC
+  = xsA ++ xsB ++ b : xsC
 
   | i > j
   , (xsA, xsBC) <- splitAt j xs
@@ -280,6 +280,19 @@ handle Api.Drop{mcsSrc, mcsDst} = do
         setState st
           { stPlayers = stPlayers st
             & Map.insert (pCookie player) player{pLetters = moved}
+          }
+        broadcastStateUpdate
+
+    (Api.Board srcI srcJ, Api.Letters dst)
+      | Just cellSrc@Api.Cell{cLetter = Just letter}
+          <- Map.lookup (srcI, srcJ) (stBoard st)
+      -> do
+        let (ls, rs) = splitAt dst (pLetters player)
+        setState st
+          { stPlayers = stPlayers st
+            & Map.insert (pCookie player) player{pLetters = ls ++ letter : rs}
+          , stBoard = stBoard st
+            & Map.insert (srcI, srcJ) cellSrc{Api.cLetter = Nothing}
           }
         broadcastStateUpdate
 

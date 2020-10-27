@@ -1,6 +1,7 @@
 module Component.Letters (new) where
 
 import Prelude
+import Data.Array (length)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 
@@ -53,7 +54,7 @@ render self =
   , onDragOver: Utils.acceptDrop
   , onDragEnter: Utils.acceptDrop
   , onDrop: Utils.dropHandler \srcSpot ->
-      self.props.onLetterDrop srcSpot (Api.Letters 0)
+      self.props.onLetterDrop srcSpot (Api.Letters $ length self.props.letters)
   }
 
 new :: Props -> JSX
