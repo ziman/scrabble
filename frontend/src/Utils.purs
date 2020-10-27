@@ -17,6 +17,7 @@ import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 
 import Web.HTML as Html
 import Web.HTML.Window as Window
+import Web.Event.Event (preventDefault, Event)
 import React.Basic.Events (handler, handler_, EventHandler)
 import React.Basic.DOM.Events (capture, capture_, nativeEvent)
 
@@ -39,8 +40,17 @@ rejectDrop = handler_ $ pure unit
 acceptDrop :: EventHandler
 acceptDrop = capture_ $ pure unit
 
+checkDrop :: forall a. DecodeJson a => (a -> Boolean) -> EventHandler
+checkDrop acceptable = dropHandlerWithEvent \evt x ->
+  if acceptable x
+    then preventDefault evt
+    else pure unit
+
 dropHandler :: forall a. DecodeJson a => (a -> Effect Unit) -> EventHandler
-dropHandler handle = capture nativeEvent \evt ->
+dropHandler handle = dropHandlerWithEvent (\_evt -> handle)
+
+dropHandlerWithEvent :: forall a. DecodeJson a => (Event -> a -> Effect Unit) -> EventHandler
+dropHandlerWithEvent handle = capture nativeEvent \evt ->
   case DragEvent.fromEvent evt of
     Nothing -> pure unit
     Just dragEvt -> do
@@ -52,7 +62,7 @@ dropHandler handle = capture nativeEvent \evt ->
         Left err -> log err
         Right json -> case decodeJson json of
           Left err -> log $ show err
-          Right dragData -> handle dragData
+          Right dragData -> handle evt dragData
 
 dragHandler :: forall a. EncodeJson a => Effect a -> EventHandler
 dragHandler mkDragData = handler nativeEvent \evt ->
