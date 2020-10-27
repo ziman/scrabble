@@ -149,6 +149,12 @@ broadcastStateUpdate = do
       Nothing -> pure ()  -- can't update
       Just conn -> sendStateUpdate conn player st
 
+extract :: Eq a => a -> [a] -> Maybe [a]
+extract _ [] = Nothing
+extract x (y : ys)
+  | x == y    = Just ys
+  | otherwise = (y:) <$> extract x ys
+
 handle :: Api.Message_C2S -> Game ()
 handle Api.Join{mcsPlayerName} = do
   st <- getState
@@ -193,21 +199,25 @@ handle Api.Join{mcsPlayerName} = do
   broadcastStateUpdate
 
 handle Api.Drop{mcsI, mcsJ, mcsLetter} = do
-  let ij = (mcsI, mcsJ)
   st <- getState
-  case Map.lookup ij (stBoard st) of
-    Just Api.Cell
+  player <- getPlayer
+
+  let ij = (mcsI, mcsJ)
+  case (Map.lookup ij $ stBoard st, extract mcsLetter $ pLetters player) of
+    ( Just Api.Cell
       { Api.cBoost  = mbBoost
       , Api.cLetter = Nothing
       }
-      -> do
-        let cell = Api.Cell
-              { Api.cBoost  = mbBoost
-              , Api.cLetter = Just mcsLetter
-              }
-        setState st
-          { stBoard = Map.insert ij cell (stBoard st)
-          }
+     , Just newLetters
+     ) -> do
+      let cell = Api.Cell
+            { Api.cBoost  = mbBoost
+            , Api.cLetter = Just mcsLetter
+            }
+      setState st
+        { stBoard = Map.insert ij cell (stBoard st)
+        , stPlayers = Map.insert (pCookie player) player{ pLetters = newLetters } (stPlayers st)
+        }
 
     _ -> throwSoft "can't drop there"
 
