@@ -1,7 +1,8 @@
 module Component.Letter (new) where
 
 import Prelude
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
+import Data.Tuple (Tuple(..))
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
@@ -20,7 +21,7 @@ import Api as Api
 
 type Props =
   { letter :: Api.Letter
-  , draggable :: Boolean
+  , spot :: Maybe Api.LetterSpot
   }
 
 type State = Unit
@@ -30,20 +31,21 @@ render self =
   R.a
   { className: "letter"
   , href: "#"
-  , draggable: self.props.draggable
+  , draggable: isJust self.props.spot
   , onDragStart: handler nativeEvent \evt ->
-      case DragEvent.fromEvent evt of
-        Nothing -> pure unit
-        Just dragEvt -> do
+      case Tuple (DragEvent.fromEvent evt) self.props.spot of
+        Tuple (Just dragEvt) (Just spot) -> do
 
           DataTransfer.setData
             MediaType.applicationJSON
-            (stringify $ encodeJson self.props.letter)
+            (stringify $ encodeJson spot)
             (DragEvent.dataTransfer dragEvt)
 
           DataTransfer.setDropEffect
             DataTransfer.Move
             (DragEvent.dataTransfer dragEvt)
+
+        _ -> pure unit
   , children:
     [ R.span
       { className: "value"

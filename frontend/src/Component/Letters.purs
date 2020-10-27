@@ -1,6 +1,8 @@
 module Component.Letters (new) where
 
 import Prelude
+import Data.Tuple (Tuple(..))
+import Data.Maybe (Maybe(..))
 
 import Effect (Effect)
 import React.Basic (JSX)
@@ -9,11 +11,13 @@ import React.Basic.DOM as R
 import React.Basic.DOM.Events (capture_)
 
 import Api as Api
+import Utils as Utils
 import Component.Letter as Letter
 
 type Props =
   { letters :: Array Api.Letter
   , onGetLetter :: Effect Unit
+  , onLetterDrop :: Api.LetterSpot -> Api.LetterSpot -> Effect Unit
   }
 type State = Unit
 
@@ -23,9 +27,14 @@ render self =
   { className: "letters"
   , children: 
     ( do
-      letter <- self.props.letters
+      Tuple i letter <- Utils.enumerate self.props.letters
       pure $ R.li
-        { children: [Letter.new {letter, draggable: true}]
+        { children:
+          [ Letter.new
+            { letter
+            , spot: Just (Api.Letters i)
+            }
+          ]
         }
     ) <> [
       R.li

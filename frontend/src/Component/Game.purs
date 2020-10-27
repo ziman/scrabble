@@ -66,13 +66,15 @@ render self =
           , children:
             [ Board.new
               { board: state.board
-              , onLetterDrop: \i j letter ->
-                  sock.send $ Api.Drop {i, j, letter}
+              , onLetterDrop: \src dst ->
+                  sock.send $ Api.Drop {src, dst}
               }
             , Letters.new
               { letters: state.letters
               , onGetLetter:
                   sock.send $ Api.GetLetter
+              , onLetterDrop: \src dst ->
+                  sock.send $ Api.Drop {src, dst}
               }
             ]
           }

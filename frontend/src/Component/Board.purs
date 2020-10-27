@@ -2,7 +2,6 @@ module Component.Board (new) where
 
 import Prelude
 import Data.Tuple (Tuple(..))
-import Data.Array (zip, (..), length)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..))
 
@@ -27,7 +26,7 @@ import Component.Letter as Letter
 
 type Props =
   { board :: Api.Board
-  , onLetterDrop :: Int -> Int -> Api.Letter -> Effect Unit
+  , onLetterDrop :: Api.LetterSpot -> Api.LetterSpot -> Effect Unit
   }
 type State =
   { dropCoords :: Maybe (Tuple Int Int)
@@ -40,10 +39,10 @@ render self =
   , children:
     [ R.tbody
       { children:
-        enumerate self.props.board.cells <#> \(Tuple i row) ->
+        Utils.enumerate self.props.board.cells <#> \(Tuple i row) ->
           R.tr
           { children:
-              enumerate row <#> \(Tuple j cell) ->
+              Utils.enumerate row <#> \(Tuple j cell) ->
                 R.td
                 { className:
                   (
@@ -83,20 +82,22 @@ render self =
                           Left err -> Utils.log err
                           Right json -> case decodeJson json of
                             Left err -> Utils.log $ show err
-                            Right letter -> self.props.onLetterDrop i j letter
+                            Right srcSpot -> self.props.onLetterDrop srcSpot (Api.Board i j)
 
                 , children:
                     case cell.letter of
                       Nothing -> []
-                      Just letter -> [Letter.new {letter, draggable: false}]
+                      Just letter ->
+                        [ Letter.new
+                          { letter
+                          , spot: Just (Api.Board i j)
+                          }
+                        ]
                 }
           }
       }
     ]
   }
-
-enumerate :: forall a. Array a -> Array (Tuple Int a)
-enumerate xs = zip (0 .. (length xs - 1)) xs
 
 new :: Props -> JSX
 new = make (createComponent "Board")

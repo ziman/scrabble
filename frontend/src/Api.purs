@@ -16,20 +16,20 @@ type Letter =
   }
 
 data LetterSpot
-  = Letters { idx :: Int }
-  | Board { i :: Int, j :: Int }
+  = Letters Int
+  | Board Int Int
 
 instance letterSpotEncodeJson :: EncodeJson LetterSpot where
   encodeJson = case _ of
-    Letters obj -> "Letters" // obj
-    Board obj -> "Board" // obj
+    Letters i -> "Letters" // {idx: i}
+    Board i j -> "Board" // {i,j}
 
 instance letterSpotDecodeJson :: DecodeJson LetterSpot where
   decodeJson json = do
     obj <- decodeJson json
     obj .: "tag" >>= case _ of
-      "Letters" -> Letters <$> decodeJson json
-      "Board"   -> Board <$> decodeJson json
+      "Letters" -> Letters <$> obj .: "idx"
+      "Board"   -> Board <$> obj .: "i" <*> obj .: "j"
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
 type Drag =
@@ -101,7 +101,7 @@ instance msg_s2c_DecodeJson :: DecodeJson Message_S2C where
 
 data Message_C2S
   = Join { playerName :: String }
-  | Drop { i :: Int, j :: Int, letter :: Letter }
+  | Drop { src :: LetterSpot, dst :: LetterSpot }
   | GetLetter
 
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
