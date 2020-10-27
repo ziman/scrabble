@@ -50,8 +50,15 @@ instance phaseDecodeJson :: DecodeJson Phase where
       "WaitingForPlayers" -> pure WaitingForPlayers
       tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
 
+type Player =
+  { name :: String
+  , letters :: Int
+  , score :: Int
+  , isAlive :: Boolean
+  }
+
 type State =
-  { players :: Array String
+  { players :: Array Player
   , board :: Board
   , letters :: Array Letter
   , name :: String

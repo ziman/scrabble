@@ -120,14 +120,7 @@ application tvState pending = do
       Right () -> putStrLn $ "player " ++ show cookie ++ " quit quietly"
 
     -- mark player as dead
-    atomically $ do
-      modifyTVar tvState $ \st ->
-        st{ Game.stPlayers =
-            Map.adjust
-              (\c -> c{ Game.pConnection = Nothing })
-              cookie
-              (Game.stPlayers st)
-          }
+    void $ runExceptT $ runReaderT (runGame Game.onDeadPlayer) env
 
 -- repeats are fine
 symmetry :: [(Int, Int)] -> [(Int, Int)]

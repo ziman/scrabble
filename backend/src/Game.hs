@@ -122,6 +122,18 @@ getPlayer = do
     Nothing -> throwHard $ "could not resolve cookie " ++ show cookie
     Just player -> pure player
 
+onDeadPlayer :: Game ()
+onDeadPlayer = do
+  player <- getPlayer
+  modifyState $ \st -> st
+    { stPlayers =
+        Map.insert
+          (pCookie player)
+          player{ pConnection = Nothing }
+          (stPlayers st)
+    }
+  broadcastStateUpdate
+
 sendStateUpdate :: WS.Connection -> Player -> State -> Game ()
 sendStateUpdate conn player st = do
   let (rows, cols) = stBoardSize st
