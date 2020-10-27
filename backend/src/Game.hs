@@ -192,20 +192,23 @@ handle Api.Join{mcsPlayerName} = do
 
   broadcastStateUpdate
 
-handle _ = throwSoft "not implemented yet"
+handle Api.Drop{mcsI, mcsJ, mcsLetter} = do
+  let ij = (mcsI, mcsJ)
+  st <- getState
+  case Map.lookup ij (stBoard st) of
+    Just Api.Cell
+      { Api.cBoost  = mbBoost
+      , Api.cLetter = Nothing
+      }
+      -> do
+        let cell = Api.Cell
+              { Api.cBoost  = mbBoost
+              , Api.cLetter = Just mcsLetter
+              }
+        setState st
+          { stBoard = Map.insert ij cell (stBoard st)
+          }
 
-{-
-handle Api.Drop{mcsI, mcsJ, mcsLetter} = error "undefined"
-  cookie <- envCookie <$> ask
-  tvState <- envState <$> ask
+    _ -> throwSoft "can't drop there"
 
-  liftIO $ do
-    result <- atomically $ do
-      st <- readTVar tvState
-      -- TODO: atomic monad wrapper above api
-      -- tvar read/write
-      -- writer [Broadcast Message | Send Message]
-      -- errorT [General | User]
-      -- state [game state]
-      -- reader [env]
--}
+  broadcastStateUpdate

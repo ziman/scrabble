@@ -22,6 +22,9 @@ a.letter {
   text-align: center;
   color: black;
   text-decoration: none;
+
+  background: #eee;
+  background-clip: border-box;
 }
 
 a.letter > span.value {
@@ -52,10 +55,16 @@ table.board {
 }
 
 table.board td {
-  width: 40px;
-  height: 40px;
-  border-left: 1px dotted #ccc;
-  border-top: 1px dotted #ccc;
+  width: 42px;
+  height: 42px;
+  padding: 1px;
+  border-left: 1px dotted #ddd;
+  border-top: 1px dotted #ddd;
+  background-clip: padding-box;
+}
+
+table.board td a.letter {
+  margin: 0px auto;
 }
 
 ul.player-list {
@@ -90,8 +99,7 @@ td.triple-word {
 }
 
 td.drop {
-  outline: 2px solid black;
-  /* background-color: black !important; */
+  background-color: black !important;
 }
 
 td.nondrop {
