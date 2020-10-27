@@ -2,14 +2,19 @@ module Component.Letters (new) where
 
 import Prelude
 
+import Effect (Effect)
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
+import React.Basic.DOM.Events (capture_)
 
 import Api as Api
 import Component.Letter as Letter
 
-type Props = { letters :: Array Api.Letter }
+type Props =
+  { letters :: Array Api.Letter
+  , onGetLetter :: Effect Unit
+  }
 type State = Unit
 
 render :: Self Props State -> JSX
@@ -27,6 +32,7 @@ render self =
       { children:
         [ R.button
           { children: [R.text "+"]
+          , onClick: capture_ self.props.onGetLetter
           }
         ]
       }

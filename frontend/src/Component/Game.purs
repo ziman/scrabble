@@ -69,7 +69,11 @@ render self =
               , onLetterDrop: \i j letter ->
                   sock.send $ Api.Drop {i, j, letter}
               }
-            , Letters.new {letters: state.letters}
+            , Letters.new
+              { letters: state.letters
+              , onGetLetter:
+                  sock.send $ Api.GetLetter
+              }
             ]
           }
         ]

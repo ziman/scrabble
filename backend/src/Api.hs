@@ -103,6 +103,7 @@ instance Aeson.ToJSON Message_S2C where
 data Message_C2S
   = Join { mcsPlayerName :: Text }
   | Drop { mcsI :: Int, mcsJ :: Int, mcsLetter :: Letter }
+  | GetLetter
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.FromJSON Message_C2S where

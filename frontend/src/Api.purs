@@ -80,11 +80,13 @@ instance msg_s2c_DecodeJson :: DecodeJson Message_S2C where
 data Message_C2S
   = Join { playerName :: String }
   | Drop { i :: Int, j :: Int, letter :: Letter }
+  | GetLetter
 
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
   encodeJson = case _ of
     Join obj -> "Join" // obj
     Drop obj -> "Drop" // obj
+    GetLetter -> "GetLetter" // {}
 
 infix 3 addTag as //
 addTag :: forall a. EncodeJson a => String -> a -> Json

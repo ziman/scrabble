@@ -245,3 +245,20 @@ handle Api.Drop{mcsI, mcsJ, mcsLetter} = do
     _ -> throwSoft "can't drop there"
 
   broadcastStateUpdate
+
+handle Api.GetLetter = do
+  st <- getState
+  player <- getPlayer
+
+  case stBag st of
+    [] -> throwSoft "no more letters"
+    l:ls -> do
+      setState st
+        { stBag = ls
+        , stPlayers =
+            Map.insert
+              (pCookie player)
+              player{ pLetters = pLetters player ++ [l] }
+              (stPlayers st)
+        }
+      broadcastStateUpdate
