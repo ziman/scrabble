@@ -2,10 +2,8 @@ module Main where
 
 import System.Random
 import Data.Functor
-import Data.Function
+import Data.Foldable
 import Data.Text (Text)
-import Data.Map.Strict (Map)
-import qualified Data.Text as Text
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as Vec
 import qualified VectorShuffling.Immutable as Vec
@@ -16,6 +14,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.RWS.CPS (evalRWST)
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
 import qualified Control.Exception as Exception
@@ -31,70 +30,47 @@ type Api = ReaderT Game.Env (ExceptT Game.Error IO)
 throw :: Game.Error -> Api a
 throw = lift . throwE
 
-throwClient :: String -> Api a
-throwClient = throw . ClientError . Text.pack
+throwSoft :: String -> Api a
+throwSoft = throw . Game.SoftError
 
-throwGeneral :: String -> Api a
-throwGeneral = throw . GeneralError . Text.pack
+throwHard :: String -> Api a
+throwHard = throw . Game.HardError
 
 recv :: Api Api.Message_C2S
 recv = do
-  conn <- envConnection <$> ask
+  conn <- Game.envConnection <$> ask
   msgBS <- liftIO $
     (Right <$> WS.receiveData conn)
       `Exception.catch` \e -> pure $ Left (show (e :: WS.ConnectionException))
   case Aeson.decode <$> msgBS of
-    Left err -> throwGeneral $ "can't recv: " ++ err
-    Right Nothing -> throwGeneral $ "can't decode: " ++ show msgBS
+    Left err -> throwHard $ "can't recv: " ++ err
+    Right Nothing -> throwHard $ "can't decode: " ++ show msgBS
     Right (Just msg) -> pure msg
 
 send :: Api.Message_S2C -> Api ()
 send msg = do
-  conn <- envConnection <$> ask
+  conn <- Game.envConnection <$> ask
   liftIO $ WS.sendTextData conn (Aeson.encode msg)
 
 loop :: Api () -> Api a
 loop api = do
   liftCatch catchE api $ \case
-    ClientError msg -> do
+    Game.SoftError msg -> do
       send Api.Error{ mscMessage = msg }
       loop api
-    GeneralError msg -> throw $ GeneralError msg
+    Game.HardError msg -> throw $ Game.HardError msg
   loop api
 
-getClient :: Api Client
-getClient = do
-  cookie <- envCookie <$> ask
-  st <- liftIO . readTVarIO =<< (envState <$> ask)
-  case Map.lookup cookie (stClients st) of
-    Nothing -> throwGeneral "client not found"
-    Just client -> pure client
+getPlayer :: Api Game.Player
+getPlayer = do
+  cookie <- Game.envCookie <$> ask
+  st <- liftIO . readTVarIO =<< (Game.envState <$> ask)
+  case Map.lookup cookie (Game.stPlayers st) of
+    Nothing -> throwHard "player not found"
+    Just player -> pure player
 
-sendStateUpdate :: Api ()
-sendStateUpdate = do
-  st <- liftIO . readTVarIO =<< (envState <$> ask)
-  client <- getClient
-
-  let (rows, cols) = stBoardSize st
-  send $ Api.Update $ Api.State
-    { Api.stPlayers = map clName $ Map.elems $ stClients st
-    , Api.stBoard = Api.Board
-      { bRows = rows
-      , bCols = cols
-      , bCells =
-        [ [ stBoard st Map.! (i, j)
-          | j <- [0..cols-1]
-          ]
-        | i <- [0..rows-1]
-        ]
-      }
-    , Api.stLetters = clLetters client
-    , Api.stName    = clName client
-    , Api.stCookie  = clCookie client
-    }
-
-clientLoop :: Api ()
-clientLoop = loop (recv >>= handle)
+playerLoop :: Api ()
+playerLoop = loop (runGame . Game.handle =<< recv)
 
 -- send close and receive all remaining messages
 closeConnection :: Api.Cookie -> WS.Connection -> IO ()
@@ -105,98 +81,46 @@ closeConnection cookie conn =
       forever (void $ WS.receive conn)
     putStrLn $ show cookie ++ ": connection closed"
 
-handle :: Api.Message_C2S -> Api ()
-handle Api.Join{mcsPlayerName} = do
-  tvState <- envState <$> ask
-  cookie <- envCookie <$> ask
-  connection <- envConnection <$> ask
+runEffect :: Game.Effect -> Api ()
+runEffect = error "TODO"
 
-  liftIO $ do
-    result <- atomically $ do
-      st <- readTVar tvState
+runGame :: Game.Game a -> Api a
+runGame game = do
+  env <- ask
+  liftIO (atomically $ runExceptT $ evalRWST game env ()) >>= \case
+    Left err -> throw err
+    Right (x, effects) -> do
+      traverse_ runEffect effects
+      pure x
 
-      -- first check if the username happens to be an old cookie
-      let oldCookie = Api.Cookie mcsPlayerName
-      case Map.lookup oldCookie (stClients st) of
-        -- it is the old cookie, take over session
-        Just oldClient -> do
-          writeTVar tvState $
-            st{ stClients = stClients st
-                & Map.insert cookie oldClient{ clCookie = cookie }
-                & Map.delete oldCookie
-              }
-          pure $ Left oldClient
-
-        Nothing -> do
-          -- create a new client
-          let (letters, rest) = splitAt 8 (stBag st)
-          writeTVar tvState $
-            st{ stClients = stClients st
-                & Map.insert cookie Client
-                  { clName = mcsPlayerName
-                  , clConnection = Just connection
-                  , clLetters = letters
-                  , clScore = 0
-                  , clCookie = cookie
-                  }
-              , stBag = rest
-              }
-          pure $ Right ()
-
-    case result of
-      Left client -> do
-        putStrLn $ show cookie ++ " resurrects client " ++ show (clCookie client, clName client)
-        case clConnection client of
-          Just conn -> closeConnection (clCookie client) conn
-          Nothing -> putStrLn $ "  -> old client already dead"
-
-      Right () -> putStrLn $ show cookie ++ " is a new client"
-
-  sendStateUpdate
-
-handle Api.Drop{mcsI, mcsJ, mcsLetter} = error "undefined"
-  cookie <- envCookie <$> ask
-  tvState <- envState <$> ask
-
-  liftIO $ do
-    result <- atomically $ do
-      st <- readTVar tvState
-      -- TODO: atomic monad wrapper above api
-      -- tvar read/write
-      -- writer [Broadcast Message | Send Message]
-      -- errorT [General | User]
-      -- state [game state]
-      -- reader [env]
-
-
-application :: TVar State -> WS.ServerApp
+application :: TVar Game.State -> WS.ServerApp
 application tvState pending = do
   connection <- WS.acceptRequest pending
   WS.withPingThread connection 30 (return ()) $ do
     cookie <- randomIO
-    let env = Env
+    let env = Game.Env
           { envConnection = connection
           , envState      = tvState
           , envCookie     = cookie
           }
 
     result <-
-      runExceptT (runReaderT clientLoop env)
+      runExceptT (runReaderT playerLoop env)
         `Exception.catch`
-          \e -> pure $ Left $ GeneralError $ Text.pack $ show (e :: SomeException)
+          \e -> pure $ Left $ Game.HardError $ show (e :: SomeException)
 
     case result of
-      Left err -> putStrLn $ "client " ++ show cookie ++ ": " ++ show err
-      Right () -> putStrLn $ "client " ++ show cookie ++ " quit quietly"
+      Left err -> putStrLn $ "player " ++ show cookie ++ ": " ++ show err
+      Right () -> putStrLn $ "player " ++ show cookie ++ " quit quietly"
 
-    -- mark client as dead
+    -- mark player as dead
     atomically $ do
       modifyTVar tvState $ \st ->
-        st{ stClients =
+        st{ Game.stPlayers =
             Map.adjust
-              (\c -> c{ clConnection = Nothing })
+              (\c -> c{ Game.pConnection = Nothing })
               cookie
-              (stClients st)
+              (Game.stPlayers st)
           }
 
 -- repeats are fine
@@ -229,8 +153,8 @@ main = do
   WS.runServer "0.0.0.0" 8083
     $ application tvState
   where
-    initialState g = State
-      { stClients = Map.empty
+    initialState g = Game.State
+      { stPlayers = Map.empty
       , stBoardSize = (15, 15)
       , stBoard =
         Map.fromList

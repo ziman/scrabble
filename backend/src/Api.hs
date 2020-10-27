@@ -82,7 +82,7 @@ instance Aeson.ToJSON State where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data Message_S2C
-  = Error { mscMessage :: Text }
+  = Error { mscMessage :: String }
   | Update { mscState :: State }
   deriving (Eq, Ord, Show, Generic)
 

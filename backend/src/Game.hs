@@ -6,7 +6,6 @@ import Data.Function
 import Data.Foldable
 import Data.Text (Text)
 import Data.Map.Strict (Map)
-import qualified Data.Text as Text
 import qualified Data.Map.Strict as Map
 
 import Control.Monad.Trans.Except
@@ -20,15 +19,15 @@ import qualified Network.WebSockets as WS
 import qualified Api
 
 data Player = Player
-  { clName :: Text
-  , clConnection :: Maybe WS.Connection
-  , clLetters :: [Api.Letter]
-  , clScore :: Int
-  , clCookie :: Api.Cookie
+  { pName :: Text
+  , pConnection :: Maybe WS.Connection
+  , pLetters :: [Api.Letter]
+  , pScore :: Int
+  , pCookie :: Api.Cookie
   }
 
 instance Show Player where
-  show c = show (clName c, clCookie c, clScore c, clLetters c)
+  show c = show (pName c, pCookie c, pScore c, pLetters c)
 
 data State = State
   { stPlayers :: Map Api.Cookie Player
@@ -45,13 +44,13 @@ data Env = Env
   }
 
 data Error
-  = SoftError Text  -- keep the connection
-  | HardError Text  -- kill the connection
+  = SoftError String  -- keep the connection
+  | HardError String  -- kill the connection
   deriving (Eq, Ord)
 
 instance Show Error where
-  show (SoftError msg) = "soft error: " ++ Text.unpack msg
-  show (HardError msg) = "hard error: " ++ Text.unpack msg
+  show (SoftError msg) = "soft error: " ++ msg
+  show (HardError msg) = "hard error: " ++ msg
 
 data Effect
   = Send WS.Connection Api.Message_S2C
@@ -69,10 +68,10 @@ throw :: Error -> Game a
 throw = lift . throwE
 
 throwSoft :: String -> Game a
-throwSoft = throw . SoftError . Text.pack
+throwSoft = throw . SoftError
 
 throwHard :: String -> Game a
-throwHard = throw . HardError . Text.pack
+throwHard = throw . HardError
 
 liftSTM :: STM a -> Game a
 liftSTM = lift . lift
@@ -126,7 +125,7 @@ sendStateUpdate :: WS.Connection -> Player -> State -> Game ()
 sendStateUpdate conn player st = do
   let (rows, cols) = stBoardSize st
   send conn $ Api.Update $ Api.State
-    { Api.stPlayers = map clName $ Map.elems $ stPlayers st
+    { Api.stPlayers = map pName $ Map.elems $ stPlayers st
     , Api.stBoard = Api.Board  -- we could precompute this
       { bRows = rows
       , bCols = cols
@@ -137,16 +136,16 @@ sendStateUpdate conn player st = do
         | i <- [0..rows-1]
         ]
       }
-    , Api.stLetters = clLetters player
-    , Api.stName    = clName player
-    , Api.stCookie  = clCookie player
+    , Api.stLetters = pLetters player
+    , Api.stName    = pName player
+    , Api.stCookie  = pCookie player
     }
 
 broadcastStateUpdate :: Game ()
 broadcastStateUpdate = do
   st <- getState
   for_ (Map.elems $ stPlayers st) $ \player ->
-    case clConnection player of
+    case pConnection player of
       Nothing -> pure ()  -- can't update
       Just conn -> sendStateUpdate conn player st
 
@@ -160,17 +159,17 @@ handle Api.Join{mcsPlayerName} = do
   case Map.lookup oldCookie (stPlayers st) of
     -- it is the old cookie, take over session
     Just oldPlayer -> do
-      log $ show cookie ++ " resurrects player " ++ show (clCookie oldPlayer, clName oldPlayer)
+      log $ show cookie ++ " resurrects player " ++ show (pCookie oldPlayer, pName oldPlayer)
 
       -- replace the player
       setState st
         { stPlayers = stPlayers st
-          & Map.insert cookie oldPlayer{ clCookie = cookie }
+          & Map.insert cookie oldPlayer{ pCookie = cookie }
           & Map.delete oldCookie
         }
 
       -- close the connection in case it's still alive
-      case clConnection oldPlayer of
+      case pConnection oldPlayer of
         Just conn -> close conn
         Nothing -> log $ "  -> old player already dead"
 
@@ -181,11 +180,11 @@ handle Api.Join{mcsPlayerName} = do
       setState st
         { stPlayers = stPlayers st
           & Map.insert cookie Player
-            { clName = mcsPlayerName
-            , clConnection = Just connection
-            , clLetters = letters
-            , clScore = 0
-            , clCookie = cookie
+            { pName = mcsPlayerName
+            , pConnection = Just connection
+            , pLetters = letters
+            , pScore = 0
+            , pCookie = cookie
             }
           , stBag = rest
           }
