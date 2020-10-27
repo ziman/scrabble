@@ -178,6 +178,25 @@ extract i (x : xs) =
   extract (i-1) xs <&>
     \(y, ys) -> (y, x:ys)
 
+idx :: Int -> [a] -> Maybe a
+idx _ [] = Nothing
+idx 0 (x:_) = Just x
+idx i (_:xs) = idx (i-1) xs
+
+move :: Int -> Int -> [a] -> [a]
+move i j xs
+  | i < j
+  , (xsA, xsBC) <- splitAt i xs
+  , (b:xsB, c:xsC) <- splitAt (j-i) xsBC
+  = xsA ++ xsB ++ c : b : xsC
+
+  | i > j
+  , (xsA, xsBC) <- splitAt j xs
+  , (xsB, c:xsC) <- splitAt (i-j) xsBC
+  = xsA ++ c : xsB ++ xsC
+
+  | otherwise = xs
+
 handle :: Api.Message_C2S -> Game ()
 handle Api.Join{mcsPlayerName} = do
   st <- getState
@@ -252,6 +271,15 @@ handle Api.Drop{mcsSrc, mcsDst} = do
           { stBoard = stBoard st
             & Map.insert (dstI, dstJ) cellDst{Api.cLetter = Just letter}
             & Map.insert (srcI, srcJ) cellSrc{Api.cLetter = Nothing}
+          }
+        broadcastStateUpdate
+
+    (Api.Letters src, Api.Letters dst)
+      | moved <- move src dst (pLetters player)
+      -> do
+        setState st
+          { stPlayers = stPlayers st
+            & Map.insert (pCookie player) player{pLetters = moved}
           }
         broadcastStateUpdate
 
