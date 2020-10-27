@@ -5,6 +5,7 @@ import Prelude hiding (log)
 import Data.Function
 import Data.Foldable
 import Data.Text (Text)
+import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
@@ -125,7 +126,15 @@ sendStateUpdate :: WS.Connection -> Player -> State -> Game ()
 sendStateUpdate conn player st = do
   let (rows, cols) = stBoardSize st
   send conn $ Api.Update $ Api.State
-    { Api.stPlayers = map pName $ Map.elems $ stPlayers st
+    { Api.stPlayers =
+      [ Api.Player
+        { pName    = pName p
+        , pScore   = pScore p
+        , pLetters = length (pLetters p)
+        , pIsAlive = isJust (pConnection p)
+        }
+      | p <- Map.elems (stPlayers st)
+      ]
     , Api.stBoard = Api.Board  -- we could precompute this
       { bRows = rows
       , bCols = cols

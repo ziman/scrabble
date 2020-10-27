@@ -69,8 +69,19 @@ data Phase
 instance Aeson.ToJSON Phase where
   toJSON = Aeson.genericToJSON jsonOptions
 
+data Player = Player
+  { pName    :: Text
+  , pLetters :: Int
+  , pScore   :: Int
+  , pIsAlive :: Bool
+  }
+  deriving (Eq, Ord, Show, Generic)
+
+instance Aeson.ToJSON Player where
+  toJSON = Aeson.genericToJSON jsonOptions
+
 data State = State
-  { stPlayers :: [Text]
+  { stPlayers :: [Player]
   , stBoard :: Board
   , stLetters :: [Letter]
   , stName :: Text
