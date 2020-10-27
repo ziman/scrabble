@@ -15,6 +15,28 @@ type Letter =
   , value :: Int
   }
 
+data LetterSpot
+  = Letters { idx :: Int }
+  | Board { i :: Int, j :: Int }
+
+instance letterSpotEncodeJson :: EncodeJson LetterSpot where
+  encodeJson = case _ of
+    Letters obj -> "Letters" // obj
+    Board obj -> "Board" // obj
+
+instance letterSpotDecodeJson :: DecodeJson LetterSpot where
+  decodeJson json = do
+    obj <- decodeJson json
+    obj .: "tag" >>= case _ of
+      "Letters" -> Letters <$> decodeJson json
+      "Board"   -> Board <$> decodeJson json
+      tag -> Left $ AtKey "tag" $ UnexpectedValue (fromString tag)
+
+type Drag =
+  { src :: LetterSpot
+  , dst :: LetterSpot
+  }
+
 data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
 
 instance boostDecodeJson :: DecodeJson Boost where
