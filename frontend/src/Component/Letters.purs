@@ -35,6 +35,10 @@ render self =
             , spot: Just (Api.Letters i)
             }
           ]
+        , onDragOver: Utils.acceptDrop
+        , onDragEnter: Utils.acceptDrop
+        , onDrop: Utils.dropHandler \srcSpot ->
+            self.props.onLetterDrop srcSpot (Api.Letters i)
         }
     ) <> [
       R.li
