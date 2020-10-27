@@ -10,12 +10,14 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 
+import Data.Argonaut.Core (stringify)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
+import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 
 import Web.HTML as Html
 import Web.HTML.Window as Window
-import React.Basic.Events (EventHandler)
+import React.Basic.Events (handler, EventHandler)
 import React.Basic.DOM.Events (capture, nativeEvent)
 
 import Data.MediaType.Common as MediaType
@@ -45,3 +47,19 @@ dropHandler handle = capture nativeEvent \evt ->
         Right json -> case decodeJson json of
           Left err -> log $ show err
           Right dragData -> handle dragData
+
+dragHandler :: forall a. EncodeJson a => Effect a -> EventHandler
+dragHandler mkDragData = handler nativeEvent \evt ->
+  case DragEvent.fromEvent evt of
+    Nothing -> pure unit
+    Just dragEvt -> do
+      dragData <- mkDragData
+
+      DataTransfer.setData
+        MediaType.applicationJSON
+        (stringify $ encodeJson dragData)
+        (DragEvent.dataTransfer dragEvt)
+
+      DataTransfer.setDropEffect
+        DataTransfer.Move
+        (DragEvent.dataTransfer dragEvt)

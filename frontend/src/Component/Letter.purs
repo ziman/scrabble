@@ -2,22 +2,14 @@ module Component.Letter (new) where
 
 import Prelude
 import Data.Maybe (Maybe(..), isJust)
-import Data.Tuple (Tuple(..))
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
-import React.Basic.Events (handler)
-import React.Basic.DOM.Events (nativeEvent)
-
-import Data.MediaType.Common as MediaType
-import Web.HTML.Event.DragEvent as DragEvent
-import Web.HTML.Event.DataTransfer as DataTransfer
-
-import Data.Argonaut.Core (stringify)
-import Data.Argonaut.Encode (encodeJson)
+import React.Basic.DOM.Events (capture_)
 
 import Api as Api
+import Utils as Utils
 
 type Props =
   { letter :: Api.Letter
@@ -32,20 +24,10 @@ render self =
   { className: "letter"
   , href: "#"
   , draggable: isJust self.props.spot
-  , onDragStart: handler nativeEvent \evt ->
-      case Tuple (DragEvent.fromEvent evt) self.props.spot of
-        Tuple (Just dragEvt) (Just spot) -> do
-
-          DataTransfer.setData
-            MediaType.applicationJSON
-            (stringify $ encodeJson spot)
-            (DragEvent.dataTransfer dragEvt)
-
-          DataTransfer.setDropEffect
-            DataTransfer.Move
-            (DragEvent.dataTransfer dragEvt)
-
-        _ -> pure unit
+  , onDragStart:
+      case self.props.spot of
+        Nothing -> capture_ $ pure unit
+        Just spot -> Utils.dragHandler $ pure spot
   , children:
     [ R.span
       { className: "value"
