@@ -52,7 +52,7 @@ instance Random Cookie where
     where
       (rs, g') = rstring 5 g
 
-data Board = Board
+data Board = MkBoard
   { bCols :: Int
   , bRows :: Int
   , bCells :: [[Cell]]
@@ -100,9 +100,17 @@ data Message_S2C
 instance Aeson.ToJSON Message_S2C where
   toJSON = Aeson.genericToJSON jsonOptions
 
+data LetterSpot
+  = Board { lsI :: Int, lsJ :: Int }
+  | Letters { lsIdx :: Int }
+  deriving (Eq, Ord, Show, Generic)
+
+instance Aeson.FromJSON LetterSpot where
+  parseJSON = Aeson.genericParseJSON jsonOptions
+
 data Message_C2S
   = Join { mcsPlayerName :: Text }
-  | Drop { mcsI :: Int, mcsJ :: Int, mcsLetter :: Letter }
+  | Drop { mcsSrc :: LetterSpot, mcsDst :: LetterSpot }
   | GetLetter
   deriving (Eq, Ord, Show, Generic)
 

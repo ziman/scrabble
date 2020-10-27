@@ -2,6 +2,7 @@ module Game where
 
 import Prelude hiding (log)
 
+import Data.Functor
 import Data.Function
 import Data.Foldable
 import Data.Text (Text)
@@ -147,7 +148,7 @@ sendStateUpdate conn player st = do
         }
       | p <- Map.elems (stPlayers st)
       ]
-    , Api.stBoard = Api.Board  -- we could precompute this
+    , Api.stBoard = Api.MkBoard  -- we could precompute this
       { bRows = rows
       , bCols = cols
       , bCells =
@@ -170,11 +171,12 @@ broadcastStateUpdate = do
       Nothing -> pure ()  -- can't update
       Just conn -> sendStateUpdate conn player st
 
-extract :: Eq a => a -> [a] -> Maybe [a]
+extract :: Int -> [a] -> Maybe (a, [a])
 extract _ [] = Nothing
-extract x (y : ys)
-  | x == y    = Just ys
-  | otherwise = (y:) <$> extract x ys
+extract 0 (x : xs) = Just (x, xs)
+extract i (x : xs) =
+  extract (i-1) xs <&>
+    \(y, ys) -> (y, x:ys)
 
 handle :: Api.Message_C2S -> Game ()
 handle Api.Join{mcsPlayerName} = do
@@ -221,30 +223,31 @@ handle Api.Join{mcsPlayerName} = do
 
   broadcastStateUpdate
 
-handle Api.Drop{mcsI, mcsJ, mcsLetter} = do
+handle Api.Drop{mcsSrc, mcsDst} = do
   st <- getState
   player <- getPlayer
 
-  let ij = (mcsI, mcsJ)
-  case (Map.lookup ij $ stBoard st, extract mcsLetter $ pLetters player) of
-    ( Just Api.Cell
-      { Api.cBoost  = mbBoost
-      , Api.cLetter = Nothing
-      }
-     , Just newLetters
-     ) -> do
-      let cell = Api.Cell
-            { Api.cBoost  = mbBoost
-            , Api.cLetter = Just mcsLetter
-            }
-      setState st
-        { stBoard = Map.insert ij cell (stBoard st)
-        , stPlayers = Map.insert (pCookie player) player{ pLetters = newLetters } (stPlayers st)
-        }
+  case (mcsSrc, mcsDst) of
+    (Api.Letters k, Api.Board i j)
+      | Just Api.Cell
+        { Api.cBoost  = mbBoost
+        , Api.cLetter = Nothing
+        } <- Map.lookup (i, j) (stBoard st)
+      , Just (letter, rest) <- extract k (pLetters player)
+      -> do
+        let cell = Api.Cell
+              { Api.cBoost  = mbBoost
+              , Api.cLetter = Just letter
+              }
+        setState st
+          { stBoard = Map.insert (i, j) cell (stBoard st)
+          , stPlayers = Map.insert (pCookie player) player{ pLetters = rest } (stPlayers st)
+          }
+
+        broadcastStateUpdate
 
     _ -> throwSoft "can't drop there"
 
-  broadcastStateUpdate
 
 handle Api.GetLetter = do
   st <- getState
