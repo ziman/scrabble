@@ -24,44 +24,11 @@ import qualified Data.Aeson as Aeson
 import qualified Network.WebSockets as WS
 
 import qualified Api
+import qualified Game
 
-data Client = Client
-  { clName :: Text
-  , clConnection :: Maybe WS.Connection
-  , clLetters :: [Api.Letter]
-  , clScore :: Int
-  , clCookie :: Api.Cookie
-  }
+type Api = ReaderT Game.Env (ExceptT Game.Error IO)
 
-instance Show Client where
-  show c = show (clName c, clCookie c, clScore c, clLetters c)
-
-data State = State
-  { stClients :: Map Api.Cookie Client
-  , stBoardSize :: (Int, Int)
-  , stBoard :: Map (Int, Int) Api.Cell
-  , stBag :: [Api.Letter]
-  }
-  deriving Show
-
-data Env = Env
-  { envConnection :: WS.Connection
-  , envState :: TVar State
-  , envCookie :: Api.Cookie
-  }
-
-data Error
-  = ClientError Text  -- keep the connection
-  | GeneralError Text  -- kill the connection
-  deriving (Eq, Ord)
-
-instance Show Error where
-  show (ClientError msg) = "client error: " ++ Text.unpack msg
-  show (GeneralError msg) = "general error: " ++ Text.unpack msg
-
-type Api = ReaderT Env (ExceptT Error IO)
-
-throw :: Error -> Api a
+throw :: Game.Error -> Api a
 throw = lift . throwE
 
 throwClient :: String -> Api a
@@ -186,6 +153,21 @@ handle Api.Join{mcsPlayerName} = do
       Right () -> putStrLn $ show cookie ++ " is a new client"
 
   sendStateUpdate
+
+handle Api.Drop{mcsI, mcsJ, mcsLetter} = error "undefined"
+  cookie <- envCookie <$> ask
+  tvState <- envState <$> ask
+
+  liftIO $ do
+    result <- atomically $ do
+      st <- readTVar tvState
+      -- TODO: atomic monad wrapper above api
+      -- tvar read/write
+      -- writer [Broadcast Message | Send Message]
+      -- errorT [General | User]
+      -- state [game state]
+      -- reader [env]
+
 
 application :: TVar State -> WS.ServerApp
 application tvState pending = do

@@ -16,6 +16,9 @@ data Letter = Letter
 instance Aeson.ToJSON Letter where
   toJSON = Aeson.genericToJSON jsonOptions
 
+instance Aeson.FromJSON Letter where
+  parseJSON = Aeson.genericParseJSON jsonOptions
+
 data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
   deriving (Eq, Ord, Show, Generic)
 
@@ -88,6 +91,7 @@ instance Aeson.ToJSON Message_S2C where
 
 data Message_C2S
   = Join { mcsPlayerName :: Text }
+  | Drop { mcsI :: Int, mcsJ :: Int, mcsLetter :: Letter }
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.FromJSON Message_C2S where
