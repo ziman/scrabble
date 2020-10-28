@@ -1,10 +1,11 @@
 module Api where
 
 import GHC.Generics
-import System.Random
 import Data.Text (Text)
-import qualified Data.Text as Text
 import qualified Data.Aeson as Aeson
+
+import Game
+import Engine
 
 data Letter = Letter
   { letter :: Text
@@ -32,24 +33,6 @@ data Cell = Cell
 
 instance Aeson.ToJSON Cell where
   toJSON = Aeson.genericToJSON jsonOptions
-
-newtype Cookie = Cookie { unCookie :: Text }
-  deriving newtype
-    (Eq, Ord, Show, Aeson.ToJSON, Aeson.FromJSON)
-
--- this is a game; we don't care about the quality of the RNG too much
-rstring :: RandomGen g => Int -> g -> (String, g)
-rstring 0 g = ("", g)
-rstring n g = (c:cs, g'')
-  where
-    (c, g') = randomR ('a', 'z') g
-    (cs, g'') = rstring (n-1) g'
-
-instance Random Cookie where
-  randomR (_, _) = random
-  random g = (Cookie (Text.pack rs), g')
-    where
-      (rs, g') = rstring 5 g
 
 data Board = MkBoard
   { cols :: Int
@@ -100,6 +83,9 @@ data Message_S2C
 
 instance Aeson.ToJSON Message_S2C where
   toJSON = Aeson.genericToJSON jsonOptions
+
+instance Engine.HasError Message_S2C where
+  s2cError = Error
 
 data LetterSpot
   = Board { i :: Int, j :: Int }

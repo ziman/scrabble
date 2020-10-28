@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5023dc3e590354cf5d8161b1afac91b7a09b0e75032e11b8ed300dfa71297851
+-- hash: fd9e0d4fad9ffd8f1bf8cd2b3369e5fced104aaae4b27d5854a5b47b9cead83e
 
 name:           scrabble
 version:        0.1.0.0
@@ -25,7 +25,9 @@ executable backend
   main-is: Main.hs
   other-modules:
       Api
+      Engine
       Game
+      Scrabble
       Paths_scrabble
   hs-source-dirs:
       src
