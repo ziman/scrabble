@@ -79,7 +79,7 @@ type Player =
   , letters :: Int
   , score :: Int
   , isAlive :: Boolean
-  , vote :: Maybe Boolean
+  , vote :: Boolean
   }
 
 type State =
