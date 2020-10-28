@@ -18,8 +18,7 @@ import qualified Data.Text as Text
 import qualified VectorShuffling.Immutable as Vec
 import qualified Data.Yaml as Yaml
 
-import Control.Monad.Trans.RWS.CPS hiding (state)
-
+import Control.Monad (when)
 import qualified Network.WebSockets as WS
 
 import Game
@@ -50,13 +49,10 @@ data State = State
 
 type Scrabble a = GameM State Api.Message_S2C a
 
-the :: (a -> b) -> a -> b
-the proj = proj
-
 getPlayer :: Scrabble Player
 getPlayer = do
   st <- getState
-  cookie <- the @(Env State) cookie <$> ask
+  cookie <- getCookie
   case Map.lookup cookie (players st) of
     Nothing -> throwHard $ "could not resolve cookie " ++ show cookie
     Just player -> pure player
@@ -141,6 +137,18 @@ move i j xs
 
   | otherwise = xs
 
+checkVotes :: Scrabble ()
+checkVotes = do
+  State{players} <- getState
+
+  let cntAlive = length [() | Player{connection = Just _} <- Map.elems players]
+      cntVoting = length [() | Player{vote = True} <- Map.elems players]
+
+  when (cntVoting >= (cntAlive+1) `div` 2) $ do
+    modifyState $ \st -> st{ uncommitted = Set.empty }
+    resetVotes
+    broadcastStateUpdate
+
 handle :: Api.Message_C2S -> Scrabble ()
 handle Api.Join{playerName} = do
   st <- getState
@@ -188,7 +196,7 @@ handle Api.Join{playerName} = do
   broadcastStateUpdate
 
 handle Api.Drop{src, dst} = do
-  st <- getState
+  st@State{uncommitted} <- getState
   player@Player{cookie} <- getPlayer
 
   case (src, dst) of
@@ -202,7 +210,7 @@ handle Api.Drop{src, dst} = do
             & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
           , players = players st
             & Map.insert cookie player{letters = rest}
-          , uncommitted = uncommitted st
+          , uncommitted = uncommitted
             & Set.insert (dstI, dstJ)
           }
 
@@ -214,12 +222,13 @@ handle Api.Drop{src, dst} = do
           <- Map.lookup (dstI, dstJ) (board st)
       , Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
+      , (srcI, srcJ) `Set.notMember` uncommitted
       -> do
         setState st
           { board = board st
             & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
-          , uncommitted = uncommitted st
+          , uncommitted = uncommitted
             & Set.delete (srcI, srcJ)
             & Set.insert (dstI, dstJ)
           }
@@ -239,6 +248,7 @@ handle Api.Drop{src, dst} = do
     (Api.Board srcI srcJ, Api.Letters dstIdx)
       | Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
+      , (srcI, srcJ) `Set.notMember` uncommitted
       -> do
         let (ls, rs) = splitAt dstIdx (letters player)
         setState st
@@ -246,7 +256,7 @@ handle Api.Drop{src, dst} = do
             & Map.insert cookie player{letters = ls ++ letter : rs}
           , board = board st
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
-          , uncommitted = uncommitted st
+          , uncommitted = uncommitted
             & Set.delete (srcI, srcJ)
           }
         broadcastStateUpdate
@@ -270,6 +280,14 @@ handle Api.GetLetter = do
               (players st)
         }
       broadcastStateUpdate
+
+handle Api.Vote{vote} = do
+  player@Player{cookie} <- getPlayer
+  modifyState $ \st -> st
+    { players = players st
+      & Map.insert cookie player{vote}
+    }
+  checkVotes
 
 -- repeats are fine
 symmetry :: [(Int, Int)] -> [(Int, Int)]

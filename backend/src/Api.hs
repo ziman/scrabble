@@ -100,6 +100,7 @@ data Message_C2S
   = Join { playerName :: Text }
   | Drop { src :: LetterSpot, dst :: LetterSpot }
   | GetLetter
+  | Vote { vote :: Bool }
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.FromJSON Message_C2S where
