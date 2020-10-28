@@ -28,6 +28,7 @@ ghc-options:
 - -Wall
 - -Wextra
 - -Werror
+- -Wno-name-shadowing
 
 default-extensions:
 - LambdaCase

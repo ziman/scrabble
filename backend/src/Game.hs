@@ -133,29 +133,29 @@ getPlayer = do
 
 onDeadPlayer :: Game ()
 onDeadPlayer = do
-  player <- getPlayer
+  player@Player{cookie} <- getPlayer
   modifyState $ \st -> st
     { players =
         Map.insert
-          (the @Player cookie player)
-          (player{ connection = Nothing } :: Player)
+          cookie
+          (player{connection = Nothing} :: Player)
           (players st)
     }
   broadcastStateUpdate
 
 sendStateUpdate :: WS.Connection -> Player -> State -> Game ()
-sendStateUpdate conn player st = do
+sendStateUpdate conn Player{..} st = do
   let (rows, cols) = boardSize st
   send conn $ Api.Update $ Api.State
     { players =
       [ Api.Player
-        { name    = name p
-        , score   = score p
-        , letters = length (letters p)
-        , isAlive = isJust (the @Player connection p)
-        , vote = vote p
+        { name    = name
+        , score   = score
+        , letters = length letters
+        , isAlive = isJust connection
+        , vote    = vote
         }
-      | p <- Map.elems (players st)
+      | Player{..} <- Map.elems (players st)
       ]
     , board = Api.MkBoard  -- we could precompute this
       { rows = rows
@@ -167,17 +167,17 @@ sendStateUpdate conn player st = do
         | i <- [0..rows-1]
         ]
       }
-    , letters = letters player
-    , name    = name player
-    , cookie  = the @Player cookie player
+    , letters = letters
+    , name    = name
+    , cookie  = cookie
     , uncommitted = Set.toList (uncommitted st)
     }
 
 broadcastStateUpdate :: Game ()
 broadcastStateUpdate = do
   st <- getState
-  for_ (Map.elems $ players st) $ \player ->
-    case the @Player connection player of
+  for_ (Map.elems $ players st) $ \player@Player{connection} ->
+    case connection of
       Nothing -> pure ()  -- can't update
       Just conn -> sendStateUpdate conn player st
 
@@ -222,8 +222,8 @@ handle Api.Join{playerName} = do
   -- check if this player already exists
   case [p | p <- Map.elems (players st), name p == playerName] of
     -- it is an existing player, take over session
-    oldPlayer:_ -> do
-      log $ show thisCookie ++ " resurrects player " ++ show (the @Player cookie oldPlayer, name oldPlayer)
+    oldPlayer@Player{cookie=oldCookie, connection=oldConnection}:_ -> do
+      log $ show thisCookie ++ " resurrects player " ++ show (oldCookie, name oldPlayer)
 
       -- replace the player
       setState st
@@ -232,11 +232,11 @@ handle Api.Join{playerName} = do
             { cookie = thisCookie
             , connection = Just thisConnection
             } :: Player)
-          & Map.delete (the @Player cookie oldPlayer)
+          & Map.delete oldCookie
         }
 
       -- close the connection in case it's still alive
-      case the @Player connection oldPlayer of
+      case oldConnection of
         Just conn -> close conn
         Nothing -> log $ "  -> old player already dead"
 
@@ -261,7 +261,7 @@ handle Api.Join{playerName} = do
 
 handle Api.Drop{src, dst} = do
   st <- getState
-  player <- getPlayer
+  player@Player{cookie} <- getPlayer
 
   case (src, dst) of
     (Api.Letters k, Api.Board dstI dstJ)
@@ -273,7 +273,7 @@ handle Api.Drop{src, dst} = do
           { board = board st
             & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
           , players = players st
-            & Map.insert (the @Player cookie player) player{letters = rest}
+            & Map.insert cookie player{letters = rest}
           , uncommitted = uncommitted st
             & Set.insert (dstI, dstJ)
           }
@@ -304,7 +304,7 @@ handle Api.Drop{src, dst} = do
       -> do
         setState st
           { players = players st
-            & Map.insert (the @Player cookie player) player{letters = moved}
+            & Map.insert cookie player{letters = moved}
           }
         broadcastStateUpdate
 
@@ -315,7 +315,7 @@ handle Api.Drop{src, dst} = do
         let (ls, rs) = splitAt dstIdx (letters player)
         setState st
           { players = players st
-            & Map.insert (the @Player cookie player) player{letters = ls ++ letter : rs}
+            & Map.insert cookie player{letters = ls ++ letter : rs}
           , board = board st
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
           , uncommitted = uncommitted st
@@ -328,7 +328,7 @@ handle Api.Drop{src, dst} = do
 
 handle Api.GetLetter = do
   st <- getState
-  player <- getPlayer
+  player@Player{cookie} <- getPlayer
 
   case bag st of
     [] -> throwSoft "no more letters"
@@ -337,7 +337,7 @@ handle Api.GetLetter = do
         { bag = ls
         , players =
             Map.insert
-              (the @Player cookie player)
+              cookie
               player{ letters = letters player ++ [l] }
               (players st)
         }

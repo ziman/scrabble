@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 108e3164a80bf3ac99fda86524e7f8bf0201f7da12e0ee10c26e564780ee37c6
+-- hash: 5023dc3e590354cf5d8161b1afac91b7a09b0e75032e11b8ed300dfa71297851
 
 name:           scrabble
 version:        0.1.0.0
@@ -30,7 +30,7 @@ executable backend
   hs-source-dirs:
       src
   default-extensions: LambdaCase TypeApplications TypeOperators ScopedTypeVariables DeriveGeneric DeriveAnyClass DataKinds DerivingStrategies GeneralizedNewtypeDeriving ViewPatterns Strict FlexibleInstances FlexibleContexts GADTs TypeFamilies NamedFieldPuns RankNTypes MultiParamTypeClasses RecordWildCards MultiWayIf OverloadedStrings DuplicateRecordFields
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Wextra -Werror
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Wextra -Werror -Wno-name-shadowing
   build-depends:
       aeson
     , aeson-casing
