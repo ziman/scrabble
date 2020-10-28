@@ -1,6 +1,7 @@
 module Component.PlayerList (new) where
 
 import Prelude
+import Data.Maybe (Maybe(..))
 import Data.Array (replicate)
 
 import React.Basic (JSX)
@@ -39,8 +40,13 @@ render self =
                 , children:
                     if not player.isAlive
                       then [R.img {src: "dead.png"}]
-                      else replicate player.letters $
-                        R.span {className: "letter-dot"}
+                      else case player.vote of
+                        Just vote
+                          | vote -> [R.img {src: "thumbs-up.png"}]
+                          | otherwise -> [R.img {src: "thumbs-down.png"}]
+                        Nothing ->
+                          replicate player.letters $
+                            R.span {className: "letter-dot"}
                 }
               ]
             }
