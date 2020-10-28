@@ -1,6 +1,7 @@
 module Component.Game (new) where
 
 import Prelude
+import Data.Maybe (Maybe(..))
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
@@ -16,6 +17,7 @@ import Component.Login as Login
 import Component.Board as Board
 import Component.Letters as Letters
 import Component.PlayerList as PlayerList
+import Component.VoteButtons as VoteButtons
 
 type WebSocket = WS.Capabilities Effect Api.Message_C2S
 type Props = Unit
@@ -70,12 +72,21 @@ render self =
               , onLetterDrop: \src dst ->
                   sock.send $ Api.Drop {src, dst}
               }
-            , Letters.new
-              { letters: state.letters
-              , onGetLetter:
-                  sock.send $ Api.GetLetter
-              , onLetterDrop: \src dst ->
-                  sock.send $ Api.Drop {src, dst}
+            , R.div
+              { className: "bottom-bar"
+              , children:
+                [ VoteButtons.new
+                  { onVote: Nothing
+                  , vote: Nothing
+                  }
+                , Letters.new
+                  { letters: state.letters
+                  , onGetLetter:
+                      sock.send $ Api.GetLetter
+                  , onLetterDrop: \src dst ->
+                      sock.send $ Api.Drop {src, dst}
+                  }
+                ]
               }
             ]
           }
