@@ -14,6 +14,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Vector as Vec
 import qualified VectorShuffling.Immutable as Vec
+import qualified Data.Yaml as Yaml
 
 import Control.Monad.Trans.RWS.CPS hiding (state)
 
@@ -291,8 +292,9 @@ boosts =
 game :: Game State Api.Message_C2S Api.Message_S2C
 game = Game{onMessage = handle, onDeadPlayer = Scrabble.onDeadPlayer}
 
-mkInitialState :: IO State
-mkInitialState = do
+mkInitialState :: FilePath -> IO State
+mkInitialState fnLanguage = do
+  lang <- Yaml.decodeFileThrow fnLanguage
   g <- newStdGen
   pure $ State
     { players = Map.empty
@@ -303,57 +305,16 @@ mkInitialState = do
       `Map.union`
         Map.fromList
           [((i,j), Api.Cell Nothing Nothing) | i <- [0..14], j <- [0..14]]
-    , bag = shuffle g $ concat
-      [ replicate count (Api.Letter letter value)
-      | (letter, value, count) <- lettersCZ
-      ]
+    , bag = shuffle g $ languageLetters lang
     , uncommitted = mempty
     }
   where
+    shuffle :: StdGen -> [a] -> [a]
     shuffle g = Vec.toList . fst . flip Vec.shuffle g . Vec.fromList
 
--- letter, value, count
-lettersCZ :: [(Text, Int, Int)]
-lettersCZ =
-  [ ("A", 1, 6)
-  , ("Á", 2, 2)
-  , ("B", 2, 2)
-  , ("C", 3, 2)
-  , ("Č", 4, 2)
-  , ("D", 2, 2)
-  , ("Ď", 8, 1)
-  , ("E", 1, 5)
-  , ("É", 5, 1)
-  , ("Ě", 5, 2)
-  , ("F", 8, 1)
-  , ("G", 8, 1)
-  , ("H", 3, 2)
-  , ("CH", 4, 2)
-  , ("I", 1, 4)
-  , ("Í", 2, 2)
-  , ("J", 2, 2)
-  , ("K", 1, 4)
-  , ("L", 1, 4)
-  , ("M", 2, 3)
-  , ("N", 1, 3)
-  , ("Ň", 6, 1)
-  , ("O", 1, 6)
-  , ("Ó", 10, 1)
-  , ("P", 1, 3)
-  , ("R", 1, 4)
-  , ("Ř", 4, 2)
-  , ("S", 1, 5)
-  , ("Š", 3, 2)
-  , ("T", 1, 4)
-  , ("Ť", 6, 1)
-  , ("U", 2, 3)
-  , ("Ů", 5, 1)
-  , ("Ú", 6, 1)
-  , ("V", 1, 3)
-  , ("X", 10, 2)
-  , ("Y", 1, 3)
-  , ("Ý", 4, 2)
-  , ("Z", 3, 2)
-  , ("Ž", 4, 2)
-  , ("*", 0, 2)
-  ]
+    languageLetters :: Map Int (Map Text Int) -> [Api.Letter]
+    languageLetters lang = concat
+      [ replicate count Api.Letter{letter, value}
+      | (value, letterCnts) <- Map.toList lang
+      , (letter, count) <- Map.toList letterCnts
+      ]

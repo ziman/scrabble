@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fd9e0d4fad9ffd8f1bf8cd2b3369e5fced104aaae4b27d5854a5b47b9cead83e
+-- hash: 613a90bd3e9f3f6ad76a7e9fc1b3d4b394aee50319f2cb0fd17316024018b435
 
 name:           scrabble
 version:        0.1.0.0
@@ -39,6 +39,7 @@ executable backend
     , base >=4.7 && <5
     , bytestring
     , containers
+    , optparse-applicative
     , random
     , stm
     , text
@@ -46,4 +47,5 @@ executable backend
     , vector
     , vector-shuffling
     , websockets
+    , yaml
   default-language: Haskell2010

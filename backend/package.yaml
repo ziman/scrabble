@@ -20,6 +20,8 @@ dependencies:
 - random
 - vector
 - vector-shuffling
+- optparse-applicative
+- yaml
 
 ghc-options:
 - -threaded
