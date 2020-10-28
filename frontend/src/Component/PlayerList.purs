@@ -1,6 +1,7 @@
 module Component.PlayerList (new) where
 
 import Prelude
+import Data.Array (replicate)
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
@@ -13,16 +14,38 @@ type State = Unit
 
 render :: Self Props State -> JSX
 render self =
-  R.ul
+  R.table
   { className: "player-list"
-  , children: do
-      player <- self.props.players
-      pure $ R.li
-        { children: [R.text player.name]
-          <> if player.isAlive
-              then []
-              else [R.text "☠"]
-        }
+  , children:
+    [ R.tbody
+      { children: do
+          player <- self.props.players
+          pure $ R.tr
+            { className:
+                if player.isAlive
+                  then "alive"
+                  else "dead"
+            , children:
+              [ R.td
+                { className: "player-name"
+                , children: [R.text player.name]
+                }
+              , R.td
+                { className: "player-score"
+                , children: [R.text $ show player.score]
+                }
+              , R.td
+                { className: "player-letters"
+                , children:
+                    if not player.isAlive
+                      then [R.img {src: "dead.png"}]
+                      else replicate player.letters $
+                        R.span {className: "letter-dot"}
+                }
+              ]
+            }
+      }
+    ]
   }
 
 new :: Props -> JSX
