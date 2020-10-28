@@ -51,6 +51,7 @@ default-extensions:
 - RecordWildCards
 - MultiWayIf
 - OverloadedStrings
+- DuplicateRecordFields
 
 executables:
   backend:
