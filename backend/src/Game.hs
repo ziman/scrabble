@@ -177,6 +177,12 @@ broadcastStateUpdate = do
       Nothing -> pure ()  -- can't update
       Just conn -> sendStateUpdate conn player st
 
+resetVotes :: Game ()
+resetVotes = modifyState $ \st -> st
+  { stPlayers = stPlayers st
+    & Map.map (\p -> p{ pVote = Nothing })
+  }
+
 extract :: Int -> [a] -> Maybe (a, [a])
 extract _ [] = Nothing
 extract 0 (x : xs) = Just (x, xs)
@@ -268,6 +274,7 @@ handle Api.Drop{mcsSrc, mcsDst} = do
             & Set.insert (dstI, dstJ)
           }
 
+        resetVotes
         broadcastStateUpdate
 
     (Api.Board srcI srcJ, Api.Board dstI dstJ)
@@ -284,6 +291,8 @@ handle Api.Drop{mcsSrc, mcsDst} = do
             & Set.delete (srcI, srcJ)
             & Set.insert (dstI, dstJ)
           }
+
+        resetVotes
         broadcastStateUpdate
 
     (Api.Letters src, Api.Letters dst)
