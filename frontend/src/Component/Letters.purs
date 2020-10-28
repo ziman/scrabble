@@ -34,6 +34,7 @@ render self =
           [ Letter.new
             { letter
             , spot: Just (Api.Letters i)
+            , isUncommitted: false
             }
           ]
         , onDragOver: Utils.acceptDrop

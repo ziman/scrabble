@@ -17,7 +17,7 @@ import Component.Board as Board
 import Component.Letters as Letters
 import Component.PlayerList as PlayerList
 
-type WebSocket = WS.Capabilities Effect Api.Message_C2S 
+type WebSocket = WS.Capabilities Effect Api.Message_C2S
 type Props = Unit
 data State
   = LoggedOut
@@ -66,6 +66,7 @@ render self =
           , children:
             [ Board.new
               { board: state.board
+              , uncommitted: state.uncommitted
               , onLetterDrop: \src dst ->
                   sock.send $ Api.Drop {src, dst}
               }

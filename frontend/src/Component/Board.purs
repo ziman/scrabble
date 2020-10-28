@@ -1,8 +1,10 @@
 module Component.Board (new) where
 
 import Prelude
+import Data.Set (Set)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
+import Data.Set as Set
 
 import Effect (Effect)
 
@@ -17,6 +19,7 @@ import Component.Letter as Letter
 
 type Props =
   { board :: Api.Board
+  , uncommitted :: Set (Tuple Int Int)
   , onLetterDrop :: Api.LetterSpot -> Api.LetterSpot -> Effect Unit
   }
 type State =
@@ -65,12 +68,17 @@ render self =
                     self.props.onLetterDrop srcSpot (Api.Board i j)
 
                 , children:
+                    let isUncommitted = Tuple i j `Set.member` self.props.uncommitted in
                     case cell.letter of
                       Nothing -> []
                       Just letter ->
                         [ Letter.new
                           { letter
-                          , spot: Just (Api.Board i j)
+                          , spot:
+                              if isUncommitted
+                                then Just (Api.Board i j)
+                                else Nothing  -- can't move anymore
+                          , isUncommitted
                           }
                         ]
                 }

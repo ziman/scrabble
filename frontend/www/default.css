@@ -23,8 +23,15 @@ a.letter {
   color: black;
   text-decoration: none;
 
-  background: #eee;
   background-clip: border-box;
+}
+
+a.letter.committed {
+  background-color: #eee;
+}
+
+a.letter.uncommitted {
+  background-color: #ffc;
 }
 
 a.letter > span.value {

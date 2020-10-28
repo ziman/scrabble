@@ -14,6 +14,7 @@ import Utils as Utils
 type Props =
   { letter :: Api.Letter
   , spot :: Maybe Api.LetterSpot
+  , isUncommitted :: Boolean
   }
 
 type State = Unit
@@ -22,6 +23,9 @@ render :: Self Props State -> JSX
 render self =
   R.a
   { className: "letter"
+    <> if self.props.isUncommitted
+         then " uncommitted"
+         else " committed"
   , href: "#"
   , draggable: isJust self.props.spot
   , onDragStart:
