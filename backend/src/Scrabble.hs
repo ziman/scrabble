@@ -3,6 +3,7 @@ module Scrabble (game, mkInitialState) where
 import Prelude hiding (log)
 import System.Random
 
+import Data.Char
 import Data.Functor
 import Data.Function
 import Data.Foldable
@@ -13,6 +14,7 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Vector as Vec
+import qualified Data.Text as Text
 import qualified VectorShuffling.Immutable as Vec
 import qualified Data.Yaml as Yaml
 
@@ -314,7 +316,10 @@ mkInitialState fnLanguage = do
 
     languageLetters :: Map Int (Map Text Int) -> [Api.Letter]
     languageLetters lang = concat
-      [ replicate count Api.Letter{letter, value}
+      [ replicate count Api.Letter
+        { letter = Text.map toUpper letter
+        , value
+        }
       | (value, letterCnts) <- Map.toList lang
       , (letter, count) <- Map.toList letterCnts
       ]
