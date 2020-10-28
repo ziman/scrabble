@@ -32,7 +32,7 @@ data Player = Player
   , letters :: [Api.Letter]
   , score :: Int
   , cookie :: Cookie
-  , vote :: Maybe Bool
+  , vote :: Bool
   }
 
 instance Show Player where
@@ -97,10 +97,13 @@ sendStateUpdate conn Player{..} st = do
         | i <- [0..rows-1]
         ]
       }
-    , letters = letters
-    , name    = name
-    , cookie  = cookie
     , uncommitted = Set.toList (uncommitted st)
+
+    -- player props
+    , vote
+    , letters
+    , name
+    , cookie
     }
 
 broadcastStateUpdate :: Scrabble ()
@@ -114,7 +117,7 @@ broadcastStateUpdate = do
 resetVotes :: Scrabble ()
 resetVotes = modifyState $ \st -> st
   { players = players st
-    & Map.map (\p -> p{ vote = Nothing })
+    & Map.map (\p -> p{vote = False})
   }
 
 extract :: Int -> [a] -> Maybe (a, [a])
@@ -176,7 +179,7 @@ handle Api.Join{playerName} = do
             , letters = letters
             , score = 0
             , cookie = thisCookie
-            , vote = Nothing
+            , vote = False
             }
           , bag = rest
           }

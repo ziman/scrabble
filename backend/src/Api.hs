@@ -56,7 +56,7 @@ data Player = Player
   , letters :: Int
   , score   :: Int
   , isAlive :: Bool
-  , vote :: Maybe Bool
+  , vote    :: Bool
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -69,6 +69,7 @@ data State = State
   , letters :: [Letter]
   , name :: Text
   , cookie :: Cookie
+  , vote :: Bool
   , uncommitted :: [(Int, Int)]
   }
   deriving (Eq, Ord, Show, Generic)
