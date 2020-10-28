@@ -165,6 +165,7 @@ main = do
         [ replicate count (Api.Letter letter value)
         | (letter, value, count) <- lettersCZ
         ]
+      , stUncommitted = mempty
       }
 
     shuffle g = Vec.toList . fst . flip Vec.shuffle g . Vec.fromList

@@ -74,6 +74,7 @@ data Player = Player
   , pLetters :: Int
   , pScore   :: Int
   , pIsAlive :: Bool
+  , pVote :: Maybe Bool
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -86,6 +87,7 @@ data State = State
   , stLetters :: [Letter]
   , stName :: Text
   , stCookie :: Cookie
+  , stUncommitted :: [(Int, Int)]
   }
   deriving (Eq, Ord, Show, Generic)
 

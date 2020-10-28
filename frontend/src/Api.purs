@@ -3,6 +3,8 @@ module Api where
 import Prelude
 import Data.Maybe (Maybe)
 import Data.Either (Either(..))
+import Data.Set (Set)
+import Data.Tuple (Tuple)
 import Foreign.Object as Object
 import Data.Argonaut.Core (caseJsonObject, fromString, fromObject, Json)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
@@ -77,6 +79,7 @@ type Player =
   , letters :: Int
   , score :: Int
   , isAlive :: Boolean
+  , vote :: Maybe Boolean
   }
 
 type State =
@@ -85,6 +88,7 @@ type State =
   , letters :: Array Letter
   , name :: String
   , cookie :: String
+  , uncommitted :: Set (Tuple Int Int)
   }
 
 data Message_S2C

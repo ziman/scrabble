@@ -9,6 +9,8 @@ import Data.Text (Text)
 import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Class
@@ -26,6 +28,7 @@ data Player = Player
   , pLetters :: [Api.Letter]
   , pScore :: Int
   , pCookie :: Api.Cookie
+  , pVote :: Maybe Bool
   }
 
 instance Show Player where
@@ -36,6 +39,7 @@ data State = State
   , stBoardSize :: (Int, Int)
   , stBoard :: Map (Int, Int) Api.Cell
   , stBag :: [Api.Letter]
+  , stUncommitted :: Set (Int, Int)
   }
   deriving Show
 
@@ -139,16 +143,17 @@ sendStateUpdate :: WS.Connection -> Player -> State -> Game ()
 sendStateUpdate conn player st = do
   let (rows, cols) = stBoardSize st
   send conn $ Api.Update $ Api.State
-    { Api.stPlayers =
+    { stPlayers =
       [ Api.Player
         { pName    = pName p
         , pScore   = pScore p
         , pLetters = length (pLetters p)
         , pIsAlive = isJust (pConnection p)
+        , pVote = pVote p
         }
       | p <- Map.elems (stPlayers st)
       ]
-    , Api.stBoard = Api.MkBoard  -- we could precompute this
+    , stBoard = Api.MkBoard  -- we could precompute this
       { bRows = rows
       , bCols = cols
       , bCells =
@@ -158,9 +163,10 @@ sendStateUpdate conn player st = do
         | i <- [0..rows-1]
         ]
       }
-    , Api.stLetters = pLetters player
-    , Api.stName    = pName player
-    , Api.stCookie  = pCookie player
+    , stLetters = pLetters player
+    , stName    = pName player
+    , stCookie  = pCookie player
+    , stUncommitted = Set.toList (stUncommitted st)
     }
 
 broadcastStateUpdate :: Game ()
@@ -235,6 +241,7 @@ handle Api.Join{mcsPlayerName} = do
             , pLetters = letters
             , pScore = 0
             , pCookie = cookie
+            , pVote = Nothing
             }
           , stBag = rest
           }
