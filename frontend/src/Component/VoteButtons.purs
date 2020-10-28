@@ -1,9 +1,6 @@
 module Component.VoteButtons (new) where
 
 import Prelude
-import Data.Array (length)
-import Data.Tuple (Tuple(..))
-import Data.Maybe (Maybe(..))
 
 import Effect (Effect)
 import React.Basic (JSX)
@@ -11,13 +8,9 @@ import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 import React.Basic.DOM.Events (capture_)
 
-import Api as Api
-import Utils as Utils
-import Component.Letter as Letter
-
 type Props =
-  { onVote :: Maybe (Maybe Boolean -> Effect Unit)
-  , vote :: Maybe Boolean
+  { onVote :: Boolean -> Effect Unit
+  , vote :: Boolean
   }
 type State = Unit
 
@@ -28,9 +21,13 @@ render self =
   , children:
     [ R.button
       { children: [R.img {src: "thumbs-up.png"}]
+      , onClick: capture_ $ self.props.onVote true
+      , disabled: self.props.vote
       }
     , R.button
       { children: [R.img {src: "thumbs-down.png"}]
+      , onClick: capture_ $ self.props.onVote false
+      , disabled: not self.props.vote
       }
     ]
   }

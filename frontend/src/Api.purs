@@ -88,6 +88,7 @@ type State =
   , letters :: Array Letter
   , name :: String
   , cookie :: String
+  , vote :: Boolean
   , uncommitted :: Set (Tuple Int Int)
   }
 
@@ -107,12 +108,14 @@ data Message_C2S
   = Join { playerName :: String }
   | Drop { src :: LetterSpot, dst :: LetterSpot }
   | GetLetter
+  | Vote { vote :: Boolean }
 
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
   encodeJson = case _ of
     Join obj -> "Join" // obj
     Drop obj -> "Drop" // obj
     GetLetter -> "GetLetter" // {}
+    Vote obj -> "Vote" // obj
 
 infix 3 addTag as //
 addTag :: forall a. EncodeJson a => String -> a -> Json

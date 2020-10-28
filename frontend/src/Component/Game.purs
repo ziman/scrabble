@@ -1,7 +1,6 @@
 module Component.Game (new) where
 
 import Prelude
-import Data.Maybe (Maybe(..))
 
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
@@ -76,8 +75,8 @@ render self =
               { className: "bottom-bar"
               , children:
                 [ VoteButtons.new
-                  { onVote: Nothing
-                  , vote: Nothing
+                  { onVote: \vote -> sock.send (Api.Vote {vote})
+                  , vote: state.vote
                   }
                 , Letters.new
                   { letters: state.letters
