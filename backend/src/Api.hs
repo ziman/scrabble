@@ -3,13 +3,12 @@ module Api where
 import GHC.Generics
 import System.Random
 import Data.Text (Text)
-import Data.Aeson.Casing
 import qualified Data.Text as Text
 import qualified Data.Aeson as Aeson
 
 data Letter = Letter
-  { lLetter :: Text
-  , lValue :: Int
+  { letter :: Text
+  , value :: Int
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -26,8 +25,8 @@ instance Aeson.ToJSON Boost where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data Cell = Cell
-  { cBoost :: Maybe Boost
-  , cLetter :: Maybe Letter
+  { boost :: Maybe Boost
+  , letter :: Maybe Letter
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -53,9 +52,9 @@ instance Random Cookie where
       (rs, g') = rstring 5 g
 
 data Board = MkBoard
-  { bCols :: Int
-  , bRows :: Int
-  , bCells :: [[Cell]]
+  { cols :: Int
+  , rows :: Int
+  , cells :: [[Cell]]
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -70,11 +69,11 @@ instance Aeson.ToJSON Phase where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data Player = Player
-  { pName    :: Text
-  , pLetters :: Int
-  , pScore   :: Int
-  , pIsAlive :: Bool
-  , pVote :: Maybe Bool
+  { name    :: Text
+  , letters :: Int
+  , score   :: Int
+  , isAlive :: Bool
+  , vote :: Maybe Bool
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -82,12 +81,12 @@ instance Aeson.ToJSON Player where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data State = State
-  { stPlayers :: [Player]
-  , stBoard :: Board
-  , stLetters :: [Letter]
-  , stName :: Text
-  , stCookie :: Cookie
-  , stUncommitted :: [(Int, Int)]
+  { players :: [Player]
+  , board :: Board
+  , letters :: [Letter]
+  , name :: Text
+  , cookie :: Cookie
+  , uncommitted :: [(Int, Int)]
   }
   deriving (Eq, Ord, Show, Generic)
 
@@ -95,24 +94,24 @@ instance Aeson.ToJSON State where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data Message_S2C
-  = Error { mscMessage :: String }
-  | Update { mscState :: State }
+  = Error { message :: String }
+  | Update { state :: State }
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.ToJSON Message_S2C where
   toJSON = Aeson.genericToJSON jsonOptions
 
 data LetterSpot
-  = Board { lsI :: Int, lsJ :: Int }
-  | Letters { lsIdx :: Int }
+  = Board { i :: Int, j :: Int }
+  | Letters { idx :: Int }
   deriving (Eq, Ord, Show, Generic)
 
 instance Aeson.FromJSON LetterSpot where
   parseJSON = Aeson.genericParseJSON jsonOptions
 
 data Message_C2S
-  = Join { mcsPlayerName :: Text }
-  | Drop { mcsSrc :: LetterSpot, mcsDst :: LetterSpot }
+  = Join { playerName :: Text }
+  | Drop { src :: LetterSpot, dst :: LetterSpot }
   | GetLetter
   deriving (Eq, Ord, Show, Generic)
 
@@ -120,7 +119,4 @@ instance Aeson.FromJSON Message_C2S where
   parseJSON = Aeson.genericParseJSON jsonOptions
 
 jsonOptions :: Aeson.Options
-jsonOptions = (aesonPrefix camelCase)
-  { Aeson.sumEncoding = Aeson.defaultTaggedObject
-  }
-
+jsonOptions = Aeson.defaultOptions

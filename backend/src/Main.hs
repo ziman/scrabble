@@ -22,6 +22,7 @@ import qualified Control.Exception as Exception
 import qualified Data.Aeson as Aeson
 import qualified Network.WebSockets as WS
 
+import Game (the)
 import qualified Api
 import qualified Game
 
@@ -38,7 +39,7 @@ throwHard = throw . Game.HardError
 
 recv :: Api Api.Message_C2S
 recv = do
-  conn <- Game.envConnection <$> ask
+  conn <- the @Game.Env Game.connection <$> ask
   msgBS <- liftIO $
     (Right <$> WS.receiveData conn)
       `Exception.catch` \e -> pure $ Left (show (e :: WS.ConnectionException))
@@ -49,23 +50,23 @@ recv = do
 
 send :: Api.Message_S2C -> Api ()
 send msg = do
-  conn <- Game.envConnection <$> ask
+  conn <- the @Game.Env Game.connection <$> ask
   liftIO $ WS.sendTextData conn (Aeson.encode msg)
 
 loop :: Api () -> Api a
 loop api = do
   liftCatch catchE api $ \case
     Game.SoftError msg -> do
-      send Api.Error{ mscMessage = msg }
+      send Api.Error{ message = msg }
       loop api
     Game.HardError msg -> throw $ Game.HardError msg
   loop api
 
 getPlayer :: Api Game.Player
 getPlayer = do
-  cookie <- Game.envCookie <$> ask
-  st <- liftIO . readTVarIO =<< (Game.envState <$> ask)
-  case Map.lookup cookie (Game.stPlayers st) of
+  cookie <- the @Game.Env Game.cookie <$> ask
+  st <- liftIO . readTVarIO =<< (Game.state <$> ask)
+  case Map.lookup cookie (Game.players st) of
     Nothing -> throwHard "player not found"
     Just player -> pure player
 
@@ -105,9 +106,9 @@ application tvState pending = do
   WS.withPingThread connection 30 (return ()) $ do
     cookie <- randomIO
     let env = Game.Env
-          { envConnection = connection
-          , envState      = tvState
-          , envCookie     = cookie
+          { connection = connection
+          , state      = tvState
+          , cookie     = cookie
           }
 
     result <-
@@ -153,19 +154,19 @@ main = do
     $ application tvState
   where
     initialState g = Game.State
-      { stPlayers = Map.empty
-      , stBoardSize = (15, 15)
-      , stBoard =
+      { players = Map.empty
+      , boardSize = (15, 15)
+      , board =
         Map.fromList
           [(ij, Api.Cell (Just boost) Nothing) | (boost, ijs) <- boosts, ij <- ijs]
         `Map.union`
           Map.fromList
             [((i,j), Api.Cell Nothing Nothing) | i <- [0..14], j <- [0..14]]
-      , stBag = shuffle g $ concat
+      , bag = shuffle g $ concat
         [ replicate count (Api.Letter letter value)
         | (letter, value, count) <- lettersCZ
         ]
-      , stUncommitted = mempty
+      , uncommitted = mempty
       }
 
     shuffle g = Vec.toList . fst . flip Vec.shuffle g . Vec.fromList

@@ -28,6 +28,7 @@ ghc-options:
 - -Wall
 - -Wextra
 - -Werror
+- -Wno-name-shadowing
 
 default-extensions:
 - LambdaCase
@@ -51,6 +52,7 @@ default-extensions:
 - RecordWildCards
 - MultiWayIf
 - OverloadedStrings
+- DuplicateRecordFields
 
 executables:
   backend:
