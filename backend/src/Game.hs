@@ -264,6 +264,8 @@ handle Api.Drop{mcsSrc, mcsDst} = do
             & Map.insert (dstI, dstJ) cellDst{Api.cLetter = Just letter}
           , stPlayers = stPlayers st
             & Map.insert (pCookie player) player{pLetters = rest}
+          , stUncommitted = stUncommitted st
+            & Set.insert (dstI, dstJ)
           }
 
         broadcastStateUpdate
@@ -278,6 +280,9 @@ handle Api.Drop{mcsSrc, mcsDst} = do
           { stBoard = stBoard st
             & Map.insert (dstI, dstJ) cellDst{Api.cLetter = Just letter}
             & Map.insert (srcI, srcJ) cellSrc{Api.cLetter = Nothing}
+          , stUncommitted = stUncommitted st
+            & Set.delete (srcI, srcJ)
+            & Set.insert (dstI, dstJ)
           }
         broadcastStateUpdate
 
@@ -300,6 +305,8 @@ handle Api.Drop{mcsSrc, mcsDst} = do
             & Map.insert (pCookie player) player{pLetters = ls ++ letter : rs}
           , stBoard = stBoard st
             & Map.insert (srcI, srcJ) cellSrc{Api.cLetter = Nothing}
+          , stUncommitted = stUncommitted st
+            & Set.delete (srcI, srcJ)
           }
         broadcastStateUpdate
 
