@@ -147,7 +147,6 @@ checkVotes = do
   when (cntVoting >= (cntAlive+1) `div` 2) $ do
     modifyState $ \st -> st{ uncommitted = Set.empty }
     resetVotes
-    broadcastStateUpdate
 
 handle :: Api.Message_C2S -> Scrabble ()
 handle Api.Join{playerName} = do
@@ -288,6 +287,7 @@ handle Api.Vote{vote} = do
       & Map.insert cookie player{vote}
     }
   checkVotes
+  broadcastStateUpdate
 
 -- repeats are fine
 symmetry :: [(Int, Int)] -> [(Int, Int)]
