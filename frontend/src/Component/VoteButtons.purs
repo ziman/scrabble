@@ -8,9 +8,12 @@ import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 import React.Basic.DOM.Events (capture_)
 
+import Api as Api
+
 type Props =
   { onVote :: Boolean -> Effect Unit
   , vote :: Boolean
+  , uncommittedWords :: Array Api.Word
   }
 type State = Unit
 
@@ -19,15 +22,37 @@ render self =
   R.div
   { className: "vote-buttons"
   , children:
-    [ R.button
-      { children: [R.img {src: "thumbs-up.png"}]
-      , onClick: capture_ $ self.props.onVote true
-      , disabled: self.props.vote
+    [ R.table
+      { children:
+        [ R.tbody
+          { children: do
+              word <- self.props.uncommittedWords
+              pure $ R.tr
+                { children:
+                  [ R.td
+                    { children: [R.text word.word]
+                    }
+                  , R.td
+                    { children: [R.text $ show word.value]
+                    }
+                  ]
+                }
+          }
+        ]
       }
-    , R.button
-      { children: [R.img {src: "thumbs-down.png"}]
-      , onClick: capture_ $ self.props.onVote false
-      , disabled: not self.props.vote
+    , R.div
+      { children:
+        [ R.button
+          { children: [R.img {src: "thumbs-up.png"}]
+          , onClick: capture_ $ self.props.onVote true
+          , disabled: self.props.vote
+          }
+        , R.button
+          { children: [R.img {src: "thumbs-down.png"}]
+          , onClick: capture_ $ self.props.onVote false
+          , disabled: not self.props.vote
+          }
+        ]
       }
     ]
   }

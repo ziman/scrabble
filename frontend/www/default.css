@@ -56,9 +56,12 @@ ul.letters {
   margin: 15px auto;
 }
 
-table.player-list {
+div.left-column {
   width: 150px;
   float: left;
+}
+
+table.player-list {
   margin: 0px;
 }
 
@@ -152,10 +155,6 @@ td.nondrop {
 
 div.bottom-bar {
   width: 675px;
-}
-
-div.bottom-bar div.vote-buttons {
-  float: right;
 }
 
 /*

@@ -61,7 +61,17 @@ render self =
       R.div
       { className: "game"
       , children:
-        [ PlayerList.new {players: state.players}
+        [ R.div
+          { className: "left-column"
+          , children:
+            [ PlayerList.new {players: state.players}
+            , VoteButtons.new
+              { onVote: \vote -> sock.send (Api.Vote {vote})
+              , vote: state.vote
+              , uncommittedWords: state.uncommittedWords
+              }
+            ]
+          }
         , R.div
           { className: "main"
           , children:
@@ -74,11 +84,7 @@ render self =
             , R.div
               { className: "bottom-bar"
               , children:
-                [ VoteButtons.new
-                  { onVote: \vote -> sock.send (Api.Vote {vote})
-                  , vote: state.vote
-                  }
-                , Letters.new
+                [ Letters.new
                   { letters: state.letters
                   , onGetLetter:
                       sock.send $ Api.GetLetter

@@ -82,6 +82,11 @@ type Player =
   , vote :: Boolean
   }
 
+type Word =
+  { word :: String
+  , value :: Int
+  }
+
 type State =
   { players :: Array Player
   , board :: Board
@@ -90,6 +95,7 @@ type State =
   , cookie :: String
   , vote :: Boolean
   , uncommitted :: Set (Tuple Int Int)
+  , uncommittedWords :: Array Word
   }
 
 data Message_S2C
