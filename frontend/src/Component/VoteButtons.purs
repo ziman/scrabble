@@ -1,6 +1,7 @@
 module Component.VoteButtons (new) where
 
 import Prelude
+import Data.Foldable (sum)
 
 import Effect (Effect)
 import React.Basic (JSX)
@@ -25,7 +26,8 @@ render self =
     [ R.table
       { children:
         [ R.tbody
-          { children: do
+          { children:
+            ( do
               word <- self.props.uncommittedWords
               pure $ R.tr
                 { children:
@@ -37,6 +39,14 @@ render self =
                     }
                   ]
                 }
+            ) <> [
+              R.tr
+              { children:
+                [ R.td {children: [R.text "Total:"]}
+                , R.td {children: [R.text $ show $ sum (self.props.uncommittedWords <#> \w -> w.value)]}
+                ]
+              }
+            ]
           }
         ]
       }

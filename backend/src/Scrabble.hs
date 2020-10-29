@@ -172,8 +172,8 @@ instance Semigroup Word where
 instance Monoid Word where
   mempty = Word ((maxBound,maxBound),(minBound,minBound)) "" 0 1
 
-getWords :: Int -> Int -> Board -> Set Word
-getWords i j board = Set.fromList $
+getWords :: Int -> Int -> Board -> Set (Int, Int) -> Set Word
+getWords i j board uncommitted = Set.fromList $
   filter (\Word{word} -> Text.length word > 1)
     [ go (-1, 0) (i,j) <> go (1, 0) (i+1,j)
     , go (0, -1) (i,j) <> go (0, 1) (i,j+1)
@@ -190,7 +190,10 @@ getWords i j board = Set.fromList $
       , rest <- go (di, dj) (i+di, j+dj)
       , (<+>) <- if di+dj < 0 then (<>) else flip (<>)
       , rng <- ((i,j),(i,j))
-      = case boost of
+      , boostU <- if (i,j) `Set.member` uncommitted
+          then boost
+          else Nothing
+      = case boostU of
           Just Api.DoubleLetter -> rest <+> Word rng letter (2*value) 1
           Just Api.TripleLetter -> rest <+> Word rng letter (3*value) 1
           Just Api.DoubleWord -> rest <+> Word rng letter value 2
@@ -207,7 +210,7 @@ getUncommittedWords State{board,uncommitted} =
     }
   | Word{word,letterScore,wordMultiplier}
       <- Set.toAscList $ Set.unions
-        [ getWords i j board
+        [ getWords i j board uncommitted
         | (i,j) <- Set.toList uncommitted
         ]
   ]
@@ -285,7 +288,7 @@ handle Api.Drop{src, dst} = do
           <- Map.lookup (dstI, dstJ) (board st)
       , Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , (srcI, srcJ) `Set.notMember` uncommitted
+      , (srcI, srcJ) `Set.member` uncommitted
       -> do
         setState st
           { board = board st
@@ -311,7 +314,7 @@ handle Api.Drop{src, dst} = do
     (Api.Board srcI srcJ, Api.Letters dstIdx)
       | Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , (srcI, srcJ) `Set.notMember` uncommitted
+      , (srcI, srcJ) `Set.member` uncommitted
       -> do
         let (ls, rs) = splitAt dstIdx (letters player)
         setState st
@@ -324,7 +327,7 @@ handle Api.Drop{src, dst} = do
           }
         broadcastStateUpdate
 
-    _ -> throwSoft "can't drop there"
+    _ -> throwSoft "can't move letter"
 
 
 handle Api.GetLetter = do
