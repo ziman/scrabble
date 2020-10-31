@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all clean serve
 
 all: www/app.js
 
@@ -10,3 +10,6 @@ index.js: src/**/*.purs src/*.purs spago.dhall packages.dhall Makefile
 
 www/app.js: index.js
 	browserify $< -o $@
+
+serve: all
+	nginx -p $(PWD) -c nginx/nginx.conf
