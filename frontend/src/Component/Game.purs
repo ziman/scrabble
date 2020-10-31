@@ -6,6 +6,10 @@ import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
 
+import Web.HTML as HTML
+import Web.HTML.Window as Window
+import Web.HTML.Location as Location
+
 import WebSocket as WS
 import Effect (Effect)
 import Effect.Exception (throwException)
@@ -31,6 +35,13 @@ onMessage self sock (Api.Update u) = do
 onMessage self sock (Api.Error e) = do
   Utils.alert e.message
 
+getWsUrl :: Effect String
+getWsUrl = do
+  l <- Window.location =<< HTML.window
+  p <- Location.protocol l
+  h <- Location.host l
+  pure $ (if p == "https:" then "wss://" else "ws://") <> h <> "/ws"
+
 render :: Self Props State -> JSX
 render self =
   case self.state of
@@ -41,7 +52,8 @@ render self =
         [ Login.new
           { onSubmit: \playerName -> do
               Utils.log playerName
-              WS.newWebSocket "ws://127.0.0.1:8083/" [] $
+              wsUrl <- getWsUrl
+              WS.newWebSocket wsUrl [] $
                 WS.WebSocketsApp \env ->
                   { onopen: \sock ->
                       sock.send $ Api.Join {playerName}
