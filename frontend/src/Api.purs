@@ -95,6 +95,8 @@ type State =
   , vote :: Boolean
   , uncommitted :: Set (Tuple Int Int)
   , uncommittedWords :: Array Word
+  , bonus :: Int
+  , lettersLeft :: Int
   }
 
 data Message_S2C

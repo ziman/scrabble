@@ -15,6 +15,7 @@ type Props =
   { onVote :: Boolean -> Effect Unit
   , vote :: Boolean
   , uncommittedWords :: Array Api.Word
+  , bonus :: Int
   }
 type State = Unit
 
@@ -39,6 +40,18 @@ render self =
                     }
                   ]
                 }
+            ) <> (
+              if self.props.bonus > 0
+                then
+                  [ R.tr
+                    { children:
+                      [ R.td {children: [R.text "BONUS:"]}
+                      , R.td {children: [R.text $ show self.props.bonus]}
+                      ]
+                    }
+                  ]
+                else
+                  []
             ) <> [
               R.tr
               { children:

@@ -55,6 +55,8 @@ data State = State
   , vote :: Bool
   , uncommitted :: [(Int, Int)]
   , uncommittedWords :: [UncommittedWord]
+  , bonus :: Int
+  , lettersLeft :: Int
   }
   deriving (Eq, Ord, Show, Generic, ToJSON)
 

@@ -77,10 +77,16 @@ render self =
           { className: "left-column"
           , children:
             [ PlayerList.new {players: state.players}
+            , R.div
+              { children:
+                [ R.text $ "Left: " <> show state.lettersLeft
+                ]
+              }
             , VoteButtons.new
               { onVote: \vote -> sock.send (Api.Vote {vote})
               , vote: state.vote
               , uncommittedWords: state.uncommittedWords
+              , bonus: state.bonus
               }
             ]
           }
@@ -105,6 +111,8 @@ render self =
                   }
                 ]
               }
+            , R.p {children: [R.text "svetlocervena: 2x pismeno, tmavocervena: 3x pismeno"]}
+            , R.p {children: [R.text "svetlozelena: 2x slovo, tmavozelena: 3x slovo"]}
             ]
           }
         ]

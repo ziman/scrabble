@@ -112,6 +112,8 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
       }
     , uncommitted = Map.keys uncommitted
     , uncommittedWords = getUncommittedWords st
+    , bonus = getBonus uncommitted
+    , lettersLeft = List.length bag
 
     -- player props
     , vote
@@ -152,6 +154,11 @@ move i j xs
 
   | otherwise = xs
 
+getBonus :: Map (Int, Int) Connection -> Int
+getBonus uncommitted
+  | Map.size uncommitted >= 7 = 50
+  | otherwise = 0
+
 checkVotes :: Scrabble ()
 checkVotes = do
   st@State{players,uncommitted} <- getState
@@ -159,15 +166,17 @@ checkVotes = do
   case Set.toList $ Set.fromList (Map.elems uncommitted) of
     -- exactly one player owns all letters
     [connScorer] -> do
-      let cntAlive = Map.size players
-          cntVoting = List.length [() | Player{vote = True} <- Map.elems players]
-      when (cntVoting >= (cntAlive+1) `div` 2) $ do
+      let agreed = all (\Player{vote} -> vote == True) (Map.elems players)
+      when agreed $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
         setState st
           { uncommitted = Map.empty
           , players = players
             & Map.adjust
-                (\p@Player{score} -> p{score = score + wordScore})
+                (\p@Player{score} -> p
+                  { score = score + wordScore + getBonus uncommitted
+                  }
+                )
                 connScorer
           }
         resetVotes
@@ -246,11 +255,8 @@ getUncommittedWords State{board,uncommitted} =
   [ Api.UncommittedWord
     { word
     , value = letterScore * wordMultiplier
-        + if length >= 7
-            then 50
-            else 0
     }
-  | Word{word,letterScore,wordMultiplier, length}
+  | Word{word,letterScore,wordMultiplier}
       <- Set.toAscList $ Set.unions
         [ getWords i j board uncommitted
         | (i,j) <- Map.keys uncommitted
