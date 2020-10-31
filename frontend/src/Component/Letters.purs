@@ -9,7 +9,6 @@ import Effect (Effect)
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
-import React.Basic.DOM.Events (capture_)
 
 import Api as Api
 import Utils as Utils
