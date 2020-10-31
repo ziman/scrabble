@@ -17,7 +17,6 @@ import Component.Letter as Letter
 
 type Props =
   { letters :: Array Api.Letter
-  , onGetLetter :: Effect Unit
   , onLetterDrop :: Api.LetterSpot -> Api.LetterSpot -> Effect Unit
   }
 type State = Unit
@@ -26,8 +25,7 @@ render :: Self Props State -> JSX
 render self =
   R.ul
   { className: "letters"
-  , children: 
-    ( do
+  , children: do
       Tuple i letter <- Utils.enumerate self.props.letters
       pure $ R.li
         { children:
@@ -42,16 +40,6 @@ render self =
         , onDrop: Utils.dropHandler \srcSpot ->
             self.props.onLetterDrop srcSpot (Api.Letters i)
         }
-    ) <> [
-      R.li
-      { children:
-        [ R.button
-          { children: [R.text "+"]
-          , onClick: capture_ self.props.onGetLetter
-          }
-        ]
-      }
-    ]
   , onDragOver: Utils.acceptDrop
   , onDragEnter: Utils.acceptDrop
   , onDrop: Utils.dropHandler \srcSpot ->

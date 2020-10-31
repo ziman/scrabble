@@ -104,8 +104,6 @@ render self =
               , children:
                 [ Letters.new
                   { letters: state.letters
-                  , onGetLetter:
-                      sock.send $ Api.GetLetter
                   , onLetterDrop: \src dst ->
                       sock.send $ Api.Drop {src, dst}
                   }

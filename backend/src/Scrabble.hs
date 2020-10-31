@@ -161,7 +161,7 @@ getBonus uncommitted
 
 checkVotes :: Scrabble ()
 checkVotes = do
-  st@State{players,uncommitted} <- getState
+  st@State{players,uncommitted,bag} <- getState
 
   case Set.toList $ Set.fromList (Map.elems uncommitted) of
     -- exactly one player owns all letters
@@ -169,15 +169,18 @@ checkVotes = do
       let agreed = all (\Player{vote} -> vote == True) (Map.elems players)
       when agreed $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
+        let (newLetters, bag') = splitAt (Map.size uncommitted) bag
         setState st
           { uncommitted = Map.empty
           , players = players
             & Map.adjust
-                (\p@Player{score} -> p
+                (\p@Player{score,letters} -> p
                   { score = score + wordScore + getBonus uncommitted
+                  , letters = letters ++ newLetters
                   }
                 )
                 connScorer
+          , bag = bag'
           }
         resetVotes
 
@@ -386,25 +389,6 @@ handle Api.Drop{src, dst} = do
         broadcastStateUpdate
 
     _ -> throwSoft "can't move letter"
-
-
-handle Api.GetLetter = do
-  st@State{players} <- getState
-  player@Player{letters} <- getPlayer
-  connection <- getConnection
-
-  case bag st of
-    [] -> throwSoft "no more letters"
-    l:ls -> do
-      setState st
-        { bag = ls
-        , players =
-            Map.insert
-              connection
-              player{ letters = letters ++ [l] }
-              players
-        }
-      broadcastStateUpdate
 
 handle Api.Vote{vote} = do
   player <- getPlayer

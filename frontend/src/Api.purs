@@ -114,14 +114,12 @@ instance msg_s2c_DecodeJson :: DecodeJson Message_S2C where
 data Message_C2S
   = Join { playerName :: String }
   | Drop { src :: LetterSpot, dst :: LetterSpot }
-  | GetLetter
   | Vote { vote :: Boolean }
 
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
   encodeJson = case _ of
     Join obj -> "Join" // obj
     Drop obj -> "Drop" // obj
-    GetLetter -> "GetLetter" // {}
     Vote obj -> "Vote" // obj
 
 infix 3 addTag as //
