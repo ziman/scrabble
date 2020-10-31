@@ -1,4 +1,17 @@
-module Game where
+module Game
+  ( Error(..)
+  , Env(..)
+  , Cookie
+  , Effect(..)
+  , GameM, runGameM
+  , throw, throwSoft, throwHard
+  , liftSTM
+  , send, close
+  , log
+  , getCookie, getConnection
+  , getState, setState, modifyState
+  )
+  where
 
 import Prelude hiding (log)
 import System.Random
@@ -33,7 +46,7 @@ data Env st = Env
   , cookie :: Cookie
   }
 
-newtype Cookie = Cookie { unCookie :: Text }
+newtype Cookie = Cookie Text
   deriving newtype
     (Eq, Ord, Show, Aeson.ToJSON, Aeson.FromJSON)
 
