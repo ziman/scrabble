@@ -30,12 +30,10 @@ render self =
                 { className: "player-name"
                 , children: [R.text player.name]
                 }
-              {-
               , R.td
                 { className: "player-score"
                 , children: [R.text $ show player.score]
                 }
-              -}
               , R.td
                 { className: "player-letters"
                 , children:
