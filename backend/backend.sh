@@ -1,4 +1,4 @@
 #!/bin/sh
 
-stack build --fast \
+stack build \
   && exec stack exec backend -- "$@"

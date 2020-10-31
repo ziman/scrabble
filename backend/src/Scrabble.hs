@@ -45,7 +45,7 @@ data State = State
   , boardSize :: (Int, Int)
   , board :: Board
   , bag :: [Api.Letter]
-  , uncommitted :: Set (Int, Int)
+  , uncommitted :: Map (Int, Int) Cookie
   }
   deriving Show
 
@@ -72,8 +72,7 @@ onDeadPlayer = do
   broadcastStateUpdate
 
 sendStateUpdate :: WS.Connection -> Player -> State -> Scrabble ()
-sendStateUpdate conn Player{..} st = do
-  let (rows, cols) = boardSize st
+sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
   send conn $ Api.Update $ Api.State
     { players =
       [ Api.Player
@@ -83,19 +82,19 @@ sendStateUpdate conn Player{..} st = do
         , isAlive = isJust connection
         , vote    = vote
         }
-      | Player{..} <- Map.elems (players st)
+      | Player{..} <- Map.elems players
       ]
     , board = Api.MkBoard  -- we could precompute this
       { rows = rows
       , cols = cols
       , cells =
-        [ [ board st Map.! (i, j)
+        [ [ board Map.! (i, j)
           | j <- [0..cols-1]
           ]
         | i <- [0..rows-1]
         ]
       }
-    , uncommitted = Set.toList (uncommitted st)
+    , uncommitted = Map.keys uncommitted
     , uncommittedWords = getUncommittedWords st
 
     -- player props
@@ -148,7 +147,8 @@ checkVotes = do
       cntVoting = length [() | Player{connection = Just _, vote = True} <- Map.elems players]
 
   when (cntVoting >= (cntAlive+1) `div` 2) $ do
-    modifyState $ \st -> st{ uncommitted = Set.empty }
+    -- TODO: compute score
+    modifyState $ \st -> st{ uncommitted = Map.empty }
     resetVotes
 
 data Word = Word
@@ -172,7 +172,7 @@ instance Semigroup Word where
 instance Monoid Word where
   mempty = Word ((maxBound,maxBound),(minBound,minBound)) "" 0 1
 
-getWords :: Int -> Int -> Board -> Set (Int, Int) -> Set Word
+getWords :: Int -> Int -> Board -> Map (Int, Int) Cookie -> Set Word
 getWords i j board uncommitted = Set.fromList $
   filter (\Word{word} -> Text.length word > 1)
     [ go (-1, 0) (i,j) <> go (1, 0) (i+1,j)
@@ -190,7 +190,7 @@ getWords i j board uncommitted = Set.fromList $
       , rest <- go (di, dj) (i+di, j+dj)
       , (<+>) <- if di+dj < 0 then (<>) else flip (<>)
       , rng <- ((i,j),(i,j))
-      , boostU <- if (i,j) `Set.member` uncommitted
+      , boostU <- if (i,j) `Map.member` uncommitted
           then boost
           else Nothing
       = case boostU of
@@ -211,7 +211,7 @@ getUncommittedWords State{board,uncommitted} =
   | Word{word,letterScore,wordMultiplier}
       <- Set.toAscList $ Set.unions
         [ getWords i j board uncommitted
-        | (i,j) <- Set.toList uncommitted
+        | (i,j) <- Map.keys uncommitted
         ]
   ]
 
@@ -277,7 +277,7 @@ handle Api.Drop{src, dst} = do
           , players = players st
             & Map.insert cookie player{letters = rest}
           , uncommitted = uncommitted
-            & Set.insert (dstI, dstJ)
+            & Map.insert (dstI, dstJ) cookie
           }
 
         resetVotes
@@ -288,15 +288,16 @@ handle Api.Drop{src, dst} = do
           <- Map.lookup (dstI, dstJ) (board st)
       , Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , (srcI, srcJ) `Set.member` uncommitted
+      , Just ownerCookie <- Map.lookup (srcI, srcJ) uncommitted
+      , ownerCookie == cookie
       -> do
         setState st
           { board = board st
             & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
           , uncommitted = uncommitted
-            & Set.delete (srcI, srcJ)
-            & Set.insert (dstI, dstJ)
+            & Map.delete (srcI, srcJ)
+            & Map.insert (dstI, dstJ) cookie
           }
 
         resetVotes
@@ -314,7 +315,8 @@ handle Api.Drop{src, dst} = do
     (Api.Board srcI srcJ, Api.Letters dstIdx)
       | Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , (srcI, srcJ) `Set.member` uncommitted
+      , Just ownerCookie <- Map.lookup (srcI, srcJ) uncommitted
+      , ownerCookie == cookie
       -> do
         let (ls, rs) = splitAt dstIdx (letters player)
         setState st
@@ -323,7 +325,7 @@ handle Api.Drop{src, dst} = do
           , board = board st
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
           , uncommitted = uncommitted
-            & Set.delete (srcI, srcJ)
+            & Map.delete (srcI, srcJ)
           }
         broadcastStateUpdate
 
