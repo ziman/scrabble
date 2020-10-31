@@ -8,7 +8,6 @@ import Data.Functor
 import Data.Function
 import Data.Foldable hiding (length)
 import Data.Text (Text)
-import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -20,59 +19,72 @@ import qualified Data.Yaml as Yaml
 import qualified Data.List as List
 
 import Control.Monad (when)
-import qualified Network.WebSockets as WS
 
 import Game
-import Engine
+import Engine (Connection)
+import qualified Engine
 import qualified Api
 
 data Player = Player
   { name :: Text
-  , connection :: Maybe WS.Connection
   , letters :: [Api.Letter]
   , score :: Int
-  , cookie :: Cookie
   , vote :: Bool
   }
 
 instance Show Player where
-  show Player{name,cookie,score,letters}
-    = show (name, cookie, score, letters)
+  show Player{name,score,letters}
+    = show (name,score,letters)
 
 type Board = Map (Int, Int) Api.Cell
 
 data State = State
-  { players :: Map Cookie Player
+  { players :: Map Connection Player
+  , deadPlayers :: [Player]
   , boardSize :: (Int, Int)
   , board :: Board
   , bag :: [Api.Letter]
-  , uncommitted :: Map (Int, Int) Cookie
+  , uncommitted :: Map (Int, Int) Connection
   }
   deriving Show
 
-type Scrabble a = GameM State Api.Message_S2C a
+data Effect
+  = Send Connection Api.Message_S2C
+  | Close Connection
+  | Log String
+
+type Scrabble a = GameM State Effect Connection a
+
+log :: String -> Scrabble ()
+log msg = perform $ Log msg
+
+send :: Connection -> Api.Message_S2C -> Scrabble ()
+send conn msg = perform $ Send conn msg
+
+close :: Connection -> Scrabble ()
+close conn = perform $ Close conn
 
 getPlayer :: Scrabble Player
 getPlayer = do
   st <- getState
-  cookie <- getCookie
-  case Map.lookup cookie (players st) of
-    Nothing -> throwHard $ "could not resolve cookie " ++ show cookie
+  connection <- getConnection
+  case Map.lookup connection (players st) of
+    Nothing -> throwHard $ "no player associated with " ++ show connection
     Just player -> pure player
 
 onDeadPlayer :: Scrabble ()
 onDeadPlayer = do
-  player@Player{cookie} <- getPlayer
-  modifyState $ \st -> st
-    { players =
-        Map.insert
-          cookie
-          (player{connection = Nothing} :: Player)
-          (players st)
+  player <- getPlayer
+  connection <- getConnection
+
+  modifyState $ \st@State{players,deadPlayers} -> st
+    { players = Map.delete connection players
+    , deadPlayers = player : deadPlayers
     }
+
   broadcastStateUpdate
 
-sendStateUpdate :: WS.Connection -> Player -> State -> Scrabble ()
+sendStateUpdate :: Connection -> Player -> State -> Scrabble ()
 sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
   send conn $ Api.Update $ Api.State
     { players =
@@ -80,10 +92,12 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
         { name    = name
         , score   = score
         , letters = List.length letters
-        , isAlive = isJust connection
         , vote    = vote
+        , isAlive
         }
-      | Player{..} <- Map.elems players
+      | (isAlive, Player{..})
+          <- zip (repeat True) (Map.elems players)
+            ++ zip (repeat False) deadPlayers
       ]
     , board = Api.MkBoard  -- we could precompute this
       { rows = rows
@@ -102,16 +116,13 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
     , vote
     , letters
     , name
-    , cookie
     }
 
 broadcastStateUpdate :: Scrabble ()
 broadcastStateUpdate = do
   st <- getState
-  for_ (Map.elems $ players st) $ \player@Player{connection} ->
-    case connection of
-      Nothing -> pure ()  -- can't update
-      Just conn -> sendStateUpdate conn player st
+  for_ (Map.toList $ players st) $ \(conn, player) ->
+    sendStateUpdate conn player st
 
 resetVotes :: Scrabble ()
 resetVotes = modifyState $ \st -> st
@@ -146,9 +157,9 @@ checkVotes = do
 
   case Set.toList $ Set.fromList (Map.elems uncommitted) of
     -- exactly one player owns all letters
-    [cookieScorer] -> do
-      let cntAlive = List.length [() | Player{connection = Just _} <- Map.elems players]
-          cntVoting = List.length [() | Player{connection = Just _, vote = True} <- Map.elems players]
+    [connScorer] -> do
+      let cntAlive = Map.size players
+          cntVoting = List.length [() | Player{vote = True} <- Map.elems players]
       when (cntVoting >= (cntAlive+1) `div` 2) $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
         setState st
@@ -156,7 +167,7 @@ checkVotes = do
           , players = players
             & Map.adjust
                 (\p@Player{score} -> p{score = score + wordScore})
-                cookieScorer
+                connScorer
           }
         resetVotes
 
@@ -173,8 +184,8 @@ checkVotes = do
       throwSoft $ "multiple letter owners: "
         ++ List.intercalate ", "
           [ Text.unpack name
-          | cookie <- owners
-          , Just Player{name} <- [Map.lookup cookie players]
+          | conn <- owners
+          , Just Player{name} <- [Map.lookup conn players]
           ]
 
 data Word = Word
@@ -199,7 +210,7 @@ instance Semigroup Word where
 instance Monoid Word where
   mempty = Word ((maxBound,maxBound),(minBound,minBound)) "" 0 1 0
 
-getWords :: Int -> Int -> Board -> Map (Int, Int) Cookie -> Set Word
+getWords :: Int -> Int -> Board -> Map (Int, Int) Connection -> Set Word
 getWords i j board uncommitted = Set.fromList $
   filter (\Word{length} -> length > 1)
     [ go (-1, 0) (i,j) <> go (1, 0) (i+1,j)
@@ -247,53 +258,61 @@ getUncommittedWords State{board,uncommitted} =
 
 handle :: Api.Message_C2S -> Scrabble ()
 handle Api.Join{playerName} = do
-  st <- getState
-  thisCookie <- getCookie
+  st@State{players, deadPlayers} <- getState
   thisConnection <- getConnection
 
   -- check if this player already exists
-  case [p | p <- Map.elems (players st), name p == playerName] of
-    -- it is an existing player, take over session
-    oldPlayer@Player{cookie=oldCookie, connection=oldConnection}:_ -> do
-      log $ show thisCookie ++ " resurrects player " ++ show (oldCookie, name oldPlayer)
+  case [(c, p) | (c, p@Player{name}) <- Map.toList players, name == playerName] of
+    -- it is a live player, take over session
+    (oldConnection, player):_ -> do
+      log $ show thisConnection ++ " replaces live player " ++ show (oldConnection, name player)
 
       -- replace the player
       setState st
-        { players = players st
-          & Map.insert thisCookie (oldPlayer
-            { cookie = thisCookie
-            , connection = Just thisConnection
-            } :: Player)
-          & Map.delete oldCookie
+        { players = players
+          & Map.delete oldConnection
+          & Map.insert thisConnection player
         }
 
-      -- close the connection in case it's still alive
-      case oldConnection of
-        Just conn -> close conn
-        Nothing -> log $ "  -> old player already dead"
+      -- close the old connection
+      close oldConnection
 
-    _ -> do
-      -- create a new player
-      let (letters, rest) = splitAt 8 (bag st)
-      setState st
-        { players = players st
-          & Map.insert thisCookie Player
-            { name = playerName
-            , connection = Just thisConnection
-            , letters = letters
-            , score = 0
-            , cookie = thisCookie
-            , vote = False
-            }
-          , bag = rest
+    -- not a live player, maybe they're dead?
+    _ -> case List.partition (\Player{name} -> name == playerName) deadPlayers of
+      -- resurrected player
+      ([player@Player{name}], rest) -> do
+        log $ show thisConnection ++ " resurrects dead player " ++ show name
+
+        -- resurrect the player
+        setState st
+          { players = players
+            & Map.insert thisConnection player
+          , deadPlayers = rest
           }
-      log $ show thisCookie ++ " is a new player"
+
+      -- brand new player
+      _ -> do
+        -- create a new player
+        log $ show thisConnection ++ " is a new player"
+
+        let (letters, rest) = splitAt 8 (bag st)
+        setState st
+          { players = players
+            & Map.insert thisConnection Player
+              { name = playerName
+              , letters = letters
+              , score = 0
+              , vote = False
+              }
+            , bag = rest
+            }
 
   broadcastStateUpdate
 
 handle Api.Drop{src, dst} = do
   st@State{uncommitted} <- getState
-  player@Player{cookie} <- getPlayer
+  connection <- getConnection
+  player <- getPlayer
 
   case (src, dst) of
     (Api.Letters k, Api.Board dstI dstJ)
@@ -305,9 +324,9 @@ handle Api.Drop{src, dst} = do
           { board = board st
             & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
           , players = players st
-            & Map.insert cookie player{letters = rest}
+            & Map.insert connection player{letters = rest}
           , uncommitted = uncommitted
-            & Map.insert (dstI, dstJ) cookie
+            & Map.insert (dstI, dstJ) connection
           }
 
         resetVotes
@@ -318,8 +337,8 @@ handle Api.Drop{src, dst} = do
           <- Map.lookup (dstI, dstJ) (board st)
       , Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , Just ownerCookie <- Map.lookup (srcI, srcJ) uncommitted
-      , ownerCookie == cookie
+      , Just ownerConnection <- Map.lookup (srcI, srcJ) uncommitted
+      , ownerConnection == connection
       -> do
         setState st
           { board = board st
@@ -327,7 +346,7 @@ handle Api.Drop{src, dst} = do
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
           , uncommitted = uncommitted
             & Map.delete (srcI, srcJ)
-            & Map.insert (dstI, dstJ) cookie
+            & Map.insert (dstI, dstJ) connection
           }
 
         resetVotes
@@ -338,20 +357,20 @@ handle Api.Drop{src, dst} = do
       -> do
         setState st
           { players = players st
-            & Map.insert cookie player{letters = moved}
+            & Map.insert connection player{letters = moved}
           }
         broadcastStateUpdate
 
     (Api.Board srcI srcJ, Api.Letters dstIdx)
       | Just cellSrc@Api.Cell{letter = Just letter}
           <- Map.lookup (srcI, srcJ) (board st)
-      , Just ownerCookie <- Map.lookup (srcI, srcJ) uncommitted
-      , ownerCookie == cookie
+      , Just ownerConnection <- Map.lookup (srcI, srcJ) uncommitted
+      , ownerConnection == connection
       -> do
         let (ls, rs) = splitAt dstIdx (letters player)
         setState st
           { players = players st
-            & Map.insert cookie player{letters = ls ++ letter : rs}
+            & Map.insert connection player{letters = ls ++ letter : rs}
           , board = board st
             & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
           , uncommitted = uncommitted
@@ -363,8 +382,9 @@ handle Api.Drop{src, dst} = do
 
 
 handle Api.GetLetter = do
-  st <- getState
-  player@Player{cookie} <- getPlayer
+  st@State{players} <- getState
+  player@Player{letters} <- getPlayer
+  connection <- getConnection
 
   case bag st of
     [] -> throwSoft "no more letters"
@@ -373,17 +393,19 @@ handle Api.GetLetter = do
         { bag = ls
         , players =
             Map.insert
-              cookie
-              player{ letters = letters player ++ [l] }
-              (players st)
+              connection
+              player{ letters = letters ++ [l] }
+              players
         }
       broadcastStateUpdate
 
 handle Api.Vote{vote} = do
-  player@Player{cookie} <- getPlayer
+  player <- getPlayer
+  connection <- getConnection
+
   modifyState $ \st -> st
     { players = players st
-      & Map.insert cookie player{vote}
+      & Map.insert connection player{vote}
     }
   checkVotes
   broadcastStateUpdate
@@ -411,8 +433,12 @@ boosts =
   , (Api.TripleWord, symmetry [(0, 0), (0, 7)])
   ]
 
-game :: Game State Api.Message_C2S Api.Message_S2C
-game = Game{onMessage = handle, onDeadPlayer = Scrabble.onDeadPlayer}
+game :: Engine.Game State Effect Api.Message_C2S Api.Message_S2C
+game = Engine.Game
+  { onMessage = handle
+  , onDeadPlayer = Scrabble.onDeadPlayer
+  , runEffect = Scrabble.runEffect
+  }
 
 mkInitialState :: FilePath -> IO State
 mkInitialState fnLanguage = do
@@ -420,6 +446,7 @@ mkInitialState fnLanguage = do
   g <- newStdGen
   pure $ State
     { players = Map.empty
+    , deadPlayers = []
     , boardSize = (15, 15)
     , board =
       Map.fromList
@@ -443,3 +470,9 @@ mkInitialState fnLanguage = do
       | (value, letterCnts) <- Map.toList lang
       , (letter, count) <- Map.toList letterCnts
       ]
+
+runEffect :: Effect -> IO ()
+runEffect = \case
+  Log msg -> putStrLn msg
+  Close conn -> Engine.close @Api.Message_S2C conn
+  Send conn msg -> Engine.send conn msg

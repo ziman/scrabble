@@ -1,25 +1,18 @@
 module Game
   ( Error(..)
   , Env(..)
-  , Cookie
-  , Effect(..)
   , GameM, runGameM
   , throw, throwSoft, throwHard
+  , perform
   , liftSTM
-  , send, close
-  , log
-  , getCookie, getConnection
+  , getConnection
   , getState, setState, modifyState
   )
   where
 
 import Prelude hiding (log)
-import System.Random
 
-import Data.Text (Text)
 import Data.Foldable (traverse_)
-import qualified Data.Text as Text
-
 import Control.Exception (SomeException)
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Class
@@ -27,9 +20,6 @@ import Control.Monad.Trans.RWS.CPS hiding (state)
 import Control.Concurrent.STM (STM, TVar)
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Exception as Exception
-
-import qualified Data.Aeson as Aeson
-import qualified Network.WebSockets as WS
 
 data Error
   = SoftError String  -- keep the connection
@@ -40,89 +30,50 @@ instance Show Error where
   show (SoftError msg) = "soft error: " ++ msg
   show (HardError msg) = "hard error: " ++ msg
 
-data Env st = Env
-  { connection :: WS.Connection
+data Env st conn = Env
+  { connection :: conn
   , state :: TVar st
-  , cookie :: Cookie
   }
 
-newtype Cookie = Cookie Text
-  deriving newtype
-    (Eq, Ord, Show, Aeson.ToJSON, Aeson.FromJSON)
+type GameM st eff conn =
+  RWST
+    (Env st conn)
+    [eff]
+    ()
+    (ExceptT Error STM)
 
--- this is a game; we don't care about the quality of the RNG too much
-rstring :: RandomGen g => Int -> g -> (String, g)
-rstring 0 g = ("", g)
-rstring n g = (c:cs, g'')
-  where
-    (c, g') = randomR ('a', 'z') g
-    (cs, g'') = rstring (n-1) g'
-
-instance Random Cookie where
-  randomR (_, _) = random
-  random g = (Cookie (Text.pack rs), g')
-    where
-      (rs, g') = rstring 5 g
-
-data Effect msg_S2C
-  = Send WS.Connection msg_S2C
-  | Close WS.Connection
-  | Log String
-
-type GameM st msg_S2C a = RWST (Env st) [Effect msg_S2C] () (ExceptT Error STM) a
-
-throw :: Error -> GameM st msg_S2C a
+throw :: Error -> GameM st eff conn a
 throw = lift . throwE
 
-throwSoft :: String -> GameM st msg_S2C a
+throwSoft :: String -> GameM st eff conn a
 throwSoft = throw . SoftError
 
-throwHard :: String -> GameM st msg_S2C a
+throwHard :: String -> GameM st eff conn a
 throwHard = throw . HardError
 
-liftSTM :: STM a -> GameM st msg_S2C a
+liftSTM :: STM a -> GameM st eff conn a
 liftSTM = lift . lift
 
-send :: Aeson.ToJSON msg_S2C => WS.Connection -> msg_S2C -> GameM st msg_S2C ()
-send conn msg = tell [Send conn msg]
+perform :: eff -> GameM st eff conn ()
+perform eff = tell [eff]
 
-close :: WS.Connection -> GameM st msg_S2C ()
-close conn = tell [Close conn]
-
-log :: String -> GameM st msg_S2C ()
-log msg = tell [Log msg]
-
-readTVar :: TVar a -> GameM st msg_S2C a
-readTVar = liftSTM . STM.readTVar
-
-writeTVar :: TVar a -> a -> GameM st msg_S2C ()
-writeTVar tv = liftSTM . STM.writeTVar tv
-
-modifyTVar :: TVar a -> (a -> a) -> GameM st msg_S2C ()
-modifyTVar tv = liftSTM . STM.modifyTVar tv
-
-getCookie :: GameM st msg_S2C Cookie
-getCookie = cookie <$> ask
-
-getConnection :: GameM st msg_S2C WS.Connection
+getConnection :: GameM st eff conn conn
 getConnection = connection <$> ask
 
-getState :: GameM st msg_S2C st
-getState = readTVar . state =<< ask
+getState :: GameM st eff conn st
+getState = liftSTM . STM.readTVar . state =<< ask
 
-setState :: st -> GameM st msg_S2C ()
+setState :: st -> GameM st eff conn ()
 setState st = do
   tvState <- state <$> ask
-  writeTVar tvState st
+  liftSTM $ STM.writeTVar tvState st
 
-modifyState :: (st -> st) -> GameM st msg_S2C ()
+modifyState :: (st -> st) -> GameM st eff conn ()
 modifyState f = do
   tvState <- state <$> ask
-  modifyTVar tvState f
+  liftSTM $ STM.modifyTVar tvState f
 
-runGameM
-  :: Aeson.ToJSON msg_S2C
-  => Env st -> (Effect msg_S2C -> IO ()) -> GameM st msg_S2C a -> IO (Either Error a)
+runGameM :: Env st conn -> (eff -> IO ()) -> GameM st eff conn a -> IO (Either Error a)
 runGameM env runEffect game =
   (STM.atomically $ runExceptT $ evalRWST game env ()) >>= \case
     Left err -> pure (Left err)

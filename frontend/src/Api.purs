@@ -92,7 +92,6 @@ type State =
   , board :: Board
   , letters :: Array Letter
   , name :: String
-  , cookie :: String
   , vote :: Boolean
   , uncommitted :: Set (Tuple Int Int)
   , uncommittedWords :: Array Word

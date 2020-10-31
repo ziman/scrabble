@@ -4,8 +4,7 @@ import GHC.Generics
 import Data.Text (Text)
 import Data.Aeson (ToJSON, FromJSON)
 
-import Game
-import Engine
+import Engine (HasError(..))
 
 data Letter = Letter
   { letter :: Text
@@ -53,7 +52,6 @@ data State = State
   , board :: Board
   , letters :: [Letter]
   , name :: Text
-  , cookie :: Cookie
   , vote :: Bool
   , uncommitted :: [(Int, Int)]
   , uncommittedWords :: [UncommittedWord]
