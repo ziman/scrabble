@@ -1,12 +1,12 @@
 module Scrabble (game, mkInitialState) where
 
-import Prelude hiding (log, Word)
+import Prelude hiding (log, Word, length)
 import System.Random
 
 import Data.Char
 import Data.Functor
 import Data.Function
-import Data.Foldable
+import Data.Foldable hiding (length)
 import Data.Text (Text)
 import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
@@ -17,6 +17,7 @@ import qualified Data.Vector as Vec
 import qualified Data.Text as Text
 import qualified VectorShuffling.Immutable as Vec
 import qualified Data.Yaml as Yaml
+import qualified Data.List as List
 
 import Control.Monad (when)
 import qualified Network.WebSockets as WS
@@ -78,7 +79,7 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
       [ Api.Player
         { name    = name
         , score   = score
-        , letters = length letters
+        , letters = List.length letters
         , isAlive = isJust connection
         , vote    = vote
         }
@@ -141,15 +142,33 @@ move i j xs
 
 checkVotes :: Scrabble ()
 checkVotes = do
-  State{players} <- getState
+  st@State{players,uncommitted} <- getState
 
-  let cntAlive = length [() | Player{connection = Just _} <- Map.elems players]
-      cntVoting = length [() | Player{connection = Just _, vote = True} <- Map.elems players]
+  let cntAlive = List.length [() | Player{connection = Just _} <- Map.elems players]
+      cntVoting = List.length [() | Player{connection = Just _, vote = True} <- Map.elems players]
 
-  when (cntVoting >= (cntAlive+1) `div` 2) $ do
-    -- TODO: compute score
-    modifyState $ \st -> st{ uncommitted = Map.empty }
-    resetVotes
+  when (cntVoting >= (cntAlive+1) `div` 2) $
+    case Set.toList $ Set.fromList (Map.elems uncommitted) of
+      -- exactly one player owns all letters
+      [cookieScorer] -> do
+        let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
+        setState st
+          { uncommitted = Map.empty
+          , players = players
+            & Map.adjust
+                (\p@Player{score} -> p{score = score + wordScore})
+                cookieScorer
+          }
+        resetVotes
+
+      [] -> throwSoft "nothing to score"
+      owners ->
+        throwSoft $ "multiple letter owners: "
+          ++ List.intercalate ", "
+            [ Text.unpack name
+            | cookie <- owners
+            , Just Player{name} <- [Map.lookup cookie players]
+            ]
 
 data Word = Word
   { range :: ((Int,Int),(Int,Int))
@@ -158,23 +177,24 @@ data Word = Word
   , word :: Text
   , letterScore :: Int
   , wordMultiplier :: Int
+  , length :: Int
   }
   deriving (Eq, Ord, Show)
 
 instance Semigroup Word where
-  Word ((minI,minJ),(maxI,maxJ)) w ls wm
-   <> Word ((minI',minJ'),(maxI',maxJ')) w' ls' wm'
+  Word ((minI,minJ),(maxI,maxJ)) w ls wm l
+   <> Word ((minI',minJ'),(maxI',maxJ')) w' ls' wm' l'
     = Word
        (( minI `min` minI', minJ `min` minJ')
        ,( maxI `max` maxI', maxJ `max` maxJ'))
-       (w <> w') (ls + ls') (wm * wm')
+       (w <> w') (ls + ls') (wm * wm') (l + l')
 
 instance Monoid Word where
-  mempty = Word ((maxBound,maxBound),(minBound,minBound)) "" 0 1
+  mempty = Word ((maxBound,maxBound),(minBound,minBound)) "" 0 1 0
 
 getWords :: Int -> Int -> Board -> Map (Int, Int) Cookie -> Set Word
 getWords i j board uncommitted = Set.fromList $
-  filter (\Word{word} -> Text.length word > 1)
+  filter (\Word{length} -> length > 1)
     [ go (-1, 0) (i,j) <> go (1, 0) (i+1,j)
     , go (0, -1) (i,j) <> go (0, 1) (i,j+1)
     ]
@@ -194,11 +214,11 @@ getWords i j board uncommitted = Set.fromList $
           then boost
           else Nothing
       = case boostU of
-          Just Api.DoubleLetter -> rest <+> Word rng letter (2*value) 1
-          Just Api.TripleLetter -> rest <+> Word rng letter (3*value) 1
-          Just Api.DoubleWord -> rest <+> Word rng letter value 2
-          Just Api.TripleWord -> rest <+> Word rng letter value 3
-          Nothing -> rest <+> Word rng letter value 1
+          Just Api.DoubleLetter -> rest <+> Word rng letter (2*value) 1 1
+          Just Api.TripleLetter -> rest <+> Word rng letter (3*value) 1 1
+          Just Api.DoubleWord -> rest <+> Word rng letter value 2 1
+          Just Api.TripleWord -> rest <+> Word rng letter value 3 1
+          Nothing -> rest <+> Word rng letter value 1 1
 
       | otherwise = mempty
 
@@ -207,8 +227,11 @@ getUncommittedWords State{board,uncommitted} =
   [ Api.UncommittedWord
     { word
     , value = letterScore * wordMultiplier
+        + if length >= 7
+            then 50
+            else 0
     }
-  | Word{word,letterScore,wordMultiplier}
+  | Word{word,letterScore,wordMultiplier, length}
       <- Set.toAscList $ Set.unions
         [ getWords i j board uncommitted
         | (i,j) <- Map.keys uncommitted
