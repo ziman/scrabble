@@ -56,7 +56,8 @@ render self =
               R.tr
               { children:
                 [ R.td {children: [R.text "Total:"]}
-                , R.td {children: [R.text $ show $ sum (self.props.uncommittedWords <#> \w -> w.value)]}
+                , R.td {children: [R.text $ show $
+                    self.props.bonus + sum (self.props.uncommittedWords <#> \w -> w.value)]}
                 ]
               }
             ]
