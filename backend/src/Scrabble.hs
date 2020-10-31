@@ -20,9 +20,10 @@ import qualified Data.List as List
 
 import Control.Monad (when)
 
-import Game
-import Engine (Connection)
-import qualified Engine
+import Game.WSGame.Game
+import Game.WSGame.Engine (Connection)
+import qualified Game.WSGame.Engine as Engine
+
 import qualified Api
 
 data Player = Player

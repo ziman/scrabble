@@ -4,7 +4,7 @@ import GHC.Generics
 import Data.Text (Text)
 import Data.Aeson (ToJSON, FromJSON)
 
-import Engine (HasError(..))
+import Game.WSGame.Engine (HasError(..))
 
 data Letter = Letter
   { letter :: Text
@@ -63,7 +63,7 @@ data Message_S2C
   | Update { state :: State }
   deriving (Eq, Ord, Show, Generic, ToJSON)
 
-instance Engine.HasError Message_S2C where
+instance HasError Message_S2C where
   s2cError = Error
 
 data LetterSpot

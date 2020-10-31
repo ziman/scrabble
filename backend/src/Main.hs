@@ -2,8 +2,8 @@ module Main where
 
 import Options.Applicative
 
-import qualified Engine
 import qualified Scrabble
+import qualified Game.WSGame.Engine as Engine
 
 data Options = Options
   { fnLanguage :: String
