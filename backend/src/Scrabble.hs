@@ -144,13 +144,12 @@ checkVotes :: Scrabble ()
 checkVotes = do
   st@State{players,uncommitted} <- getState
 
-  let cntAlive = List.length [() | Player{connection = Just _} <- Map.elems players]
-      cntVoting = List.length [() | Player{connection = Just _, vote = True} <- Map.elems players]
-
-  when (cntVoting >= (cntAlive+1) `div` 2) $
-    case Set.toList $ Set.fromList (Map.elems uncommitted) of
-      -- exactly one player owns all letters
-      [cookieScorer] -> do
+  case Set.toList $ Set.fromList (Map.elems uncommitted) of
+    -- exactly one player owns all letters
+    [cookieScorer] -> do
+      let cntAlive = List.length [() | Player{connection = Just _} <- Map.elems players]
+          cntVoting = List.length [() | Player{connection = Just _, vote = True} <- Map.elems players]
+      when (cntVoting >= (cntAlive+1) `div` 2) $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
         setState st
           { uncommitted = Map.empty
@@ -161,14 +160,22 @@ checkVotes = do
           }
         resetVotes
 
-      [] -> throwSoft "nothing to score"
-      owners ->
-        throwSoft $ "multiple letter owners: "
-          ++ List.intercalate ", "
-            [ Text.unpack name
-            | cookie <- owners
-            , Just Player{name} <- [Map.lookup cookie players]
-            ]
+    [] -> do
+      -- undo voting
+      resetVotes
+      broadcastStateUpdate
+      throwSoft "nothing to score"
+
+    owners -> do
+      -- undo voting
+      resetVotes
+      broadcastStateUpdate
+      throwSoft $ "multiple letter owners: "
+        ++ List.intercalate ", "
+          [ Text.unpack name
+          | cookie <- owners
+          , Just Player{name} <- [Map.lookup cookie players]
+          ]
 
 data Word = Word
   { range :: ((Int,Int),(Int,Int))
