@@ -13,24 +13,20 @@ data Letter = Letter
   deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
 data Boost = DoubleLetter | TripleLetter | DoubleWord | TripleWord
-  deriving (Eq, Ord, Show, Generic, ToJSON)
+  deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
 data Cell = Cell
   { boost :: Maybe Boost
   , letter :: Maybe Letter
   }
-  deriving (Eq, Ord, Show, Generic, ToJSON)
+  deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
 data Board = MkBoard
   { cols :: Int
   , rows :: Int
   , cells :: [[Cell]]
   }
-  deriving (Eq, Ord, Show, Generic, ToJSON)
-
-data Phase
-  = WaitingForPlayers
-  deriving (Eq, Ord, Show, Generic, ToJSON)
+  deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
 data Player = Player
   { name    :: Text

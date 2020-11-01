@@ -1,14 +1,17 @@
 module Main where
 
+import Control.Applicative
 import Options.Applicative
 
 import qualified Scrabble
+import qualified Data.Yaml as Yaml
 import qualified Game.WSGame.Engine as Engine
 
 data Options = Options
-  { fnLanguage :: String
+  { fnLanguage :: FilePath
   , address  :: String
   , port :: Int
+  , mbFnPersist :: Maybe FilePath
   }
 
 options :: Parser Options
@@ -31,6 +34,12 @@ options = Options
     <> value 8083
     <> help "port to listen on"
     )
+  <*> optional (strOption
+    ( long "persist"
+    <> short 'p'
+    <> metavar "STATE.yaml"
+    <> help "persist state in this file"
+    ))
 
 parseOptions :: IO Options
 parseOptions = execParser $
@@ -43,7 +52,12 @@ parseOptions = execParser $
 main :: IO ()
 main = do
   Options{..} <- parseOptions
-  initialState <- Scrabble.mkInitialState fnLanguage
+
+  initialState <- case mbFnPersist of
+    Nothing -> Scrabble.mkInitialState fnLanguage
+    Just fnPersist -> Yaml.decodeFileEither fnPersist >>= \case
+      Left _ -> Scrabble.mkInitialState fnLanguage
+      Right state -> pure (Scrabble.activate state)
 
   putStrLn $ "starting the backend at " ++ address ++ ":" ++ show port
-  Engine.runGame address port initialState Scrabble.game
+  Engine.runGame address port initialState (Scrabble.Env mbFnPersist) Scrabble.game

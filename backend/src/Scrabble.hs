@@ -1,4 +1,4 @@
-module Scrabble (game, mkInitialState) where
+module Scrabble (game, mkInitialState, Env(..), activate) where
 
 import Prelude hiding (log, Word, length)
 import System.Random
@@ -15,14 +15,17 @@ import qualified Data.Set as Set
 import qualified Data.Vector as Vec
 import qualified Data.Text as Text
 import qualified VectorShuffling.Immutable as Vec
-import qualified Data.Yaml as Yaml
 import qualified Data.List as List
 
 import Control.Monad (when)
 
-import Game.WSGame.Game
+import Game.WSGame.Game hiding (Env)
 import Game.WSGame.Engine (Connection)
 import qualified Game.WSGame.Engine as Engine
+
+import GHC.Generics (Generic)
+import qualified Data.Yaml as Yaml
+import Data.Aeson (ToJSON, FromJSON)
 
 import qualified Api
 
@@ -32,6 +35,7 @@ data Player = Player
   , score :: Int
   , vote :: Bool
   }
+  deriving (Generic, ToJSON, FromJSON)
 
 instance Show Player where
   show Player{name,score,letters}
@@ -39,22 +43,27 @@ instance Show Player where
 
 type Board = Map (Int, Int) Api.Cell
 
-data State = State
-  { players :: Map Connection Player
+data State conn = State
+  { players :: Map conn Player
   , deadPlayers :: [Player]
   , boardSize :: (Int, Int)
   , board :: Board
   , bag :: [Api.Letter]
-  , uncommitted :: Map (Int, Int) Connection
+  , uncommitted :: Map (Int, Int) conn
   }
-  deriving Show
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 data Effect
   = Send Connection Api.Message_S2C
   | Close Connection
   | Log String
+  | Save FilePath (State Int)
 
-type Scrabble a = GameM State Effect Connection a
+data Env = Env
+  { mbFnPersist :: Maybe FilePath
+  }
+
+type Scrabble a = GameM (State Connection) Effect Env Connection a
 
 log :: String -> Scrabble ()
 log msg = perform $ Log msg
@@ -85,7 +94,7 @@ onDeadPlayer = do
 
   broadcastStateUpdate
 
-sendStateUpdate :: Connection -> Player -> State -> Scrabble ()
+sendStateUpdate :: Connection -> Player -> State Connection -> Scrabble ()
 sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
   send conn $ Api.Update $ Api.State
     { players =
@@ -121,11 +130,22 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
     , name
     }
 
+activate :: State Int -> State Connection
+activate = undefined
+
+deactivate :: State Connection -> State Int
+deactivate = undefined
+
 broadcastStateUpdate :: Scrabble ()
 broadcastStateUpdate = do
   st <- getState
   for_ (Map.toList $ players st) $ \(conn, player) ->
     sendStateUpdate conn player st
+
+  (getEnv <&> mbFnPersist) >>= \case
+    Nothing -> pure ()
+    Just fnPersist ->
+      perform . Save fnPersist . deactivate =<< getState
 
 resetVotes :: Scrabble ()
 resetVotes = modifyState $ \st -> st
@@ -253,7 +273,7 @@ getWords i j board uncommitted = Set.fromList $
 
       | otherwise = mempty
 
-getUncommittedWords :: State -> [Api.UncommittedWord]
+getUncommittedWords :: State Connection -> [Api.UncommittedWord]
 getUncommittedWords State{board,uncommitted} =
   [ Api.UncommittedWord
     { word
@@ -424,14 +444,14 @@ boosts =
   , (Api.TripleWord, symmetry [(0, 0), (0, 7)])
   ]
 
-game :: Engine.Game State Effect Api.Message_C2S Api.Message_S2C
+game :: Engine.Game (State Connection) Effect Env Api.Message_C2S Api.Message_S2C
 game = Engine.Game
   { onMessage = handle
   , onDeadPlayer = Scrabble.onDeadPlayer
   , runEffect = Scrabble.runEffect
   }
 
-mkInitialState :: FilePath -> IO State
+mkInitialState :: FilePath -> IO (State Connection)
 mkInitialState fnLanguage = do
   lang <- Yaml.decodeFileThrow fnLanguage
   g <- newStdGen
@@ -467,3 +487,4 @@ runEffect = \case
   Log msg -> putStrLn msg
   Close conn -> Engine.close @Api.Message_S2C conn
   Send conn msg -> Engine.send conn msg
+  Save fn state -> Yaml.encodeFile fn state
