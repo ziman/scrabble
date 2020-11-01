@@ -46,4 +46,4 @@ main = do
   initialState <- Scrabble.mkInitialState fnLanguage
 
   putStrLn $ "starting the backend at " ++ address ++ ":" ++ show port
-  Engine.runGame address port initialState Scrabble.game
+  Engine.runGame address port initialState () Scrabble.game

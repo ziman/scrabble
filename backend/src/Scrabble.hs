@@ -54,7 +54,7 @@ data Effect
   | Close Connection
   | Log String
 
-type Scrabble a = GameM State Effect Connection a
+type Scrabble a = GameM State Effect () Connection a
 
 log :: String -> Scrabble ()
 log msg = perform $ Log msg
@@ -424,7 +424,7 @@ boosts =
   , (Api.TripleWord, symmetry [(0, 0), (0, 7)])
   ]
 
-game :: Engine.Game State Effect Api.Message_C2S Api.Message_S2C
+game :: Engine.Game State Effect () Api.Message_C2S Api.Message_S2C
 game = Engine.Game
   { onMessage = handle
   , onDeadPlayer = Scrabble.onDeadPlayer
