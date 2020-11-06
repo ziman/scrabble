@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1d58f764a3c021880e5f4f84efa32667dcae628fec1fca24ecef15cd33381a49
+-- hash: ecd6d8e476fa1bd6613499dda07f99ec4037bee12869879afb077f315ecffc5c
 
 name:           scrabble
 version:        0.1.0.0
@@ -35,6 +35,7 @@ executable backend
       aeson
     , aeson-casing
     , base >=4.7 && <5
+    , bimap
     , bytestring
     , containers
     , optparse-applicative

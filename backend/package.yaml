@@ -23,6 +23,7 @@ dependencies:
 - optparse-applicative
 - yaml
 - ws-game
+- bimap
 
 ghc-options:
 - -threaded
