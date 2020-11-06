@@ -38,6 +38,8 @@ data Player = Player
   , score   :: Int
   , isAlive :: Bool
   , vote    :: Bool
+  , turns   :: Int
+  , isTheirTurn :: Bool
   }
   deriving (Eq, Ord, Show, Generic, ToJSON)
 

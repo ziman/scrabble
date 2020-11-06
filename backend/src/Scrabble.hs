@@ -3,6 +3,7 @@ module Scrabble (game, mkInitialState) where
 import Prelude hiding (log, Word, length)
 import System.Random
 
+import Safe (minimumMay)
 import Data.Char
 import Data.Functor
 import Data.Function
@@ -101,6 +102,8 @@ onDeadPlayer = do
 
 sendStateUpdate :: Connection -> Player -> State -> Scrabble ()
 sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
+  let mbNextTurn = minimumMay
+        [(turns, pid) | (pid, Player{turns}) <- Map.toList players]
   send conn $ Api.Update $ Api.State
     { players =
       [ Api.Player
@@ -109,6 +112,8 @@ sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
         , letters = List.length letters
         , vote    = vote
         , isAlive = pid `Bimap.memberR` connections
+        , turns
+        , isTheirTurn = Just (turns, pid) == mbNextTurn
         }
       | (pid, Player{..}) <- Map.toList players
       ]

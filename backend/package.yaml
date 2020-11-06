@@ -24,6 +24,7 @@ dependencies:
 - yaml
 - ws-game
 - bimap
+- safe
 
 ghc-options:
 - -threaded
