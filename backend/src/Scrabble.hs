@@ -103,7 +103,10 @@ onDeadPlayer = do
 sendStateUpdate :: Connection -> Player -> State -> Scrabble ()
 sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
   let mbNextTurn = minimumMay
-        [(turns, pid) | (pid, Player{turns}) <- Map.toList players]
+        [ (turns, pid)
+        | (pid, Player{turns}) <- Map.toList players
+        , pid `Bimap.memberR` connections  -- and is alive
+        ]
   send conn $ Api.Update $ Api.State
     { players =
       [ Api.Player
@@ -182,7 +185,7 @@ checkVotes = do
 
   case Set.toList $ Set.fromList (Map.elems uncommitted) of
     -- exactly one player owns all letters
-    [connScorer] -> do
+    [scorerId] -> do
       let agreed = all (\Player{vote} -> vote == True) (Map.elems players)
       when agreed $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
@@ -191,12 +194,13 @@ checkVotes = do
           { uncommitted = Map.empty
           , players = players
             & Map.adjust
-                (\p@Player{score,letters} -> p
+                (\p@Player{score,letters,turns} -> p
                   { score = score + wordScore + getBonus uncommitted
                   , letters = letters ++ newLetters
+                  , turns = turns + 1
                   }
                 )
-                connScorer
+                scorerId
           , bag = bag'
           }
         resetVotes

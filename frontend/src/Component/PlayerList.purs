@@ -22,9 +22,14 @@ render self =
           player <- self.props.players
           pure $ R.tr
             { className:
-                if player.isAlive
-                  then "alive"
-                  else "dead"
+                ( if player.isAlive
+                    then "alive"
+                    else "dead"
+                ) <> (
+                  if player.isTheirTurn
+                    then " turn"
+                    else ""
+                )
             , children:
               [ R.td
                 { className: "player-name"
@@ -32,7 +37,13 @@ render self =
                 }
               , R.td
                 { className: "player-score"
-                , children: [R.text $ show player.score]
+                , children:
+                  [ R.text $ show player.score
+                  , R.span
+                    { className: "player-turns"
+                    , children: [R.text $ "/" <> show player.turns]
+                    }
+                  ]
                 }
               , R.td
                 { className: "player-letters"

@@ -80,6 +80,8 @@ type Player =
   , score :: Int
   , isAlive :: Boolean
   , vote :: Boolean
+  , turns :: Int
+  , isTheirTurn :: Boolean
   }
 
 type Word =

@@ -69,6 +69,10 @@ table.player-list tr.dead {
   color: #ccc;
 }
 
+table.player-list tr.turn {
+  background-color: #ffc;
+}
+
 table.player-list td {
   border-bottom: 1px dotted #ddd;
 }
@@ -80,6 +84,12 @@ td.player-name {
 td.player-score {
   text-align: right;
   padding: 2px 4px 2px 4px;
+}
+
+span.player-turns {
+  font-size: 0.75em;
+  color: gray;
+  vertical-align: middle;
 }
 
 td.player-letters {
