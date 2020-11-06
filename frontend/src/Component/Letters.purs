@@ -9,6 +9,7 @@ import Effect (Effect)
 import React.Basic (JSX)
 import React.Basic.Classic (Self, createComponent, make)
 import React.Basic.DOM as R
+import React.Basic.DOM.Events (capture_)
 
 import Api as Api
 import Utils as Utils
@@ -17,6 +18,7 @@ import Component.Letter as Letter
 type Props =
   { letters :: Array Api.Letter
   , onLetterDrop :: Api.LetterSpot -> Api.LetterSpot -> Effect Unit
+  , onRecycling :: Effect Unit
   }
 type State = Unit
 
@@ -46,6 +48,7 @@ render self =
           { children:
             [ R.img {src: "/recycling.png"}
             ]
+          , onClick: capture_ self.props.onRecycling
           }
         ]
       , className: "recycle-letters"

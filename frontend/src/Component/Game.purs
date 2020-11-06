@@ -106,6 +106,8 @@ render self =
                   { letters: state.letters
                   , onLetterDrop: \src dst ->
                       sock.send $ Api.Drop {src, dst}
+                  , onRecycling:
+                      sock.send $ Api.Recycle
                   }
                 ]
               }

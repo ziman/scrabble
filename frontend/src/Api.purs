@@ -117,12 +117,14 @@ data Message_C2S
   = Join { playerName :: String }
   | Drop { src :: LetterSpot, dst :: LetterSpot }
   | Vote { vote :: Boolean }
+  | Recycle
 
 instance msg_c2s_EncodeJson :: EncodeJson Message_C2S where
   encodeJson = case _ of
     Join obj -> "Join" // obj
     Drop obj -> "Drop" // obj
     Vote obj -> "Vote" // obj
+    Recycle  -> "Recycle" // {}
 
 infix 3 addTag as //
 addTag :: forall a. EncodeJson a => String -> a -> Json
