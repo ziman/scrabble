@@ -54,6 +54,7 @@ data State = State
   , board :: Board
   , bag :: [Api.Letter]
   , uncommitted :: Map (Int, Int) PlayerId
+  , stdGen :: StdGen
   }
   deriving Show
 
@@ -66,6 +67,7 @@ data Self = Self
   { connection :: Connection
   , pid :: PlayerId
   , player :: Player
+  , state :: State
   }
   deriving Show
 
@@ -82,13 +84,13 @@ close conn = perform $ Close conn
 
 getSelf :: Scrabble Self
 getSelf = do
-  State{players, connections} <- getState
+  state@State{players, connections} <- getState
   connection <- getConnection
   case Bimap.lookup connection connections of
     Nothing -> throwHard $ "connection not in game state: " ++ show connection
     Just pid -> case Map.lookup pid players of
       Nothing -> throwHard $ "no player associated with " ++ show connection
-      Just player -> pure $ Self{connection, pid, player}
+      Just player -> pure $ Self{connection, pid, player, state}
 
 onDeadPlayer :: Scrabble ()
 onDeadPlayer = do
@@ -347,8 +349,11 @@ handle Api.Join{playerName} = do
   broadcastStateUpdate
 
 handle Api.Drop{src, dst} = do
-  st@State{uncommitted} <- getState
-  Self{pid, player = player@Player{letters}} <- getSelf
+  Self
+    { pid
+    , player = player@Player{letters}
+    , state  = st@State{uncommitted}
+    } <- getSelf
 
   case (src, dst) of
     (Api.Letters k, Api.Board dstI dstJ)
@@ -426,6 +431,32 @@ handle Api.Vote{vote} = do
   checkVotes
   broadcastStateUpdate
 
+handle Api.Recycle = do
+  Self
+    { pid
+    , player = player@Player{turns,letters}
+    , state = st@State{bag, stdGen, players, uncommitted}
+    } <- getSelf
+
+  when (not $ Map.null uncommitted) $
+    throwSoft "can't recycle with uncommitted letters on board"
+
+  let bigBag = letters ++ bag
+  let (stdGen', bigBag') = shuffle stdGen bigBag
+  let (letters', bag') = splitAt 8 bigBag'
+
+  setState st
+    { players = players
+      & Map.insert pid player
+        { turns = turns + 1
+        , letters = letters'
+        }
+    , stdGen = stdGen'
+    , bag = bag'
+    }
+
+  broadcastStateUpdate
+
 -- repeats are fine
 symmetry :: [(Int, Int)] -> [(Int, Int)]
 symmetry ijs = concat
@@ -456,10 +487,16 @@ game = Engine.Game
   , runEffect = Scrabble.runEffect
   }
 
+shuffle :: StdGen -> [a] -> (StdGen, [a])
+shuffle g xs =
+  let (xs', g') = Vec.shuffle (Vec.fromList xs) g
+    in (g', Vec.toList xs')
+
 mkInitialState :: FilePath -> IO State
 mkInitialState fnLanguage = do
   lang <- Yaml.decodeFileThrow fnLanguage
   g <- newStdGen
+  let (stdGen, bag) = shuffle g $ languageLetters lang
   pure $ State
     { players = Map.empty
     , connections = Bimap.empty
@@ -471,13 +508,11 @@ mkInitialState fnLanguage = do
       `Map.union`
         Map.fromList
           [((i,j), Api.Cell Nothing Nothing) | i <- [0..14], j <- [0..14]]
-    , bag = shuffle g $ languageLetters lang
     , uncommitted = mempty
+    , bag
+    , stdGen
     }
   where
-    shuffle :: StdGen -> [a] -> [a]
-    shuffle g = Vec.toList . fst . flip Vec.shuffle g . Vec.fromList
-
     languageLetters :: Map Int (Map Text Int) -> [Api.Letter]
     languageLetters lang = concat
       [ replicate count Api.Letter

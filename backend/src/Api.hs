@@ -79,4 +79,5 @@ data Message_C2S
   = Join { playerName :: Text }
   | Drop { src :: LetterSpot, dst :: LetterSpot }
   | Vote { vote :: Bool }
+  | Recycle
   deriving (Eq, Ord, Show, Generic, FromJSON)

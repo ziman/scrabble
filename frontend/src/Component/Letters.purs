@@ -26,7 +26,19 @@ render :: Self Props State -> JSX
 render self =
   R.ul
   { className: "letters"
-  , children: (do
+  , children:
+    [ R.li
+      { children:
+        [ R.button
+          { children:
+            [ R.img {src: "/recycling.png"}
+            ]
+          , onClick: capture_ self.props.onRecycling
+          }
+        ]
+      , className: "recycle-letters"
+      }
+    ] <> (do
       Tuple i letter <- Utils.enumerate self.props.letters
       pure $ R.li
         { children:
@@ -41,19 +53,7 @@ render self =
         , onDrop: Utils.dropHandler \srcSpot ->
             self.props.onLetterDrop srcSpot (Api.Letters i)
         }
-    ) <> [
-      R.li
-      { children:
-        [ R.button
-          { children:
-            [ R.img {src: "/recycling.png"}
-            ]
-          , onClick: capture_ self.props.onRecycling
-          }
-        ]
-      , className: "recycle-letters"
-      }
-    ]
+    )
   , onDragOver: Utils.acceptDrop
   , onDragEnter: Utils.acceptDrop
   , onDrop: Utils.dropHandler \srcSpot ->
