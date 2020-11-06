@@ -33,6 +33,7 @@ data Player = Player
   , letters :: [Api.Letter]
   , score :: Int
   , vote :: Bool
+  , turns :: Int
   }
 
 instance Show Player where
@@ -326,6 +327,7 @@ handle Api.Join{playerName} = do
             , letters = letters
             , score = 0
             , vote = False
+            , turns = foldl' max 0 [turns | Player{turns} <- Map.elems players]
             }
         , connections = connections
           & Bimap.insert thisConnection nextPlayerId
