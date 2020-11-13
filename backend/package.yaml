@@ -25,6 +25,7 @@ dependencies:
 - ws-game
 - bimap
 - safe
+- microlens-platform
 
 ghc-options:
 - -threaded

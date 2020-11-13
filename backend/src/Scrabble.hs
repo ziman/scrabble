@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Scrabble (game, mkInitialState) where
 
 import Prelude hiding (log, Word, length)
@@ -23,23 +24,27 @@ import qualified Data.List as List
 
 import Control.Monad (when)
 
-import Game.WSGame.Game
 import Game.WSGame.Engine (Connection)
+import qualified Game.WSGame.Game as Game
 import qualified Game.WSGame.Engine as Engine
+
+import Lens.Micro.Platform
 
 import qualified Api
 
 data Player = Player
-  { name :: Text
-  , letters :: [Api.Letter]
-  , score :: Int
-  , vote :: Bool
-  , turns :: Int
+  { _name :: Text
+  , _letters :: [Api.Letter]
+  , _score :: Int
+  , _vote :: Bool
+  , _turns :: Int
   }
 
+makeLenses ''Player
+
 instance Show Player where
-  show Player{name,score,letters}
-    = show (name,score,letters)
+  show Player{_name, _score, _letters}
+    = show (_name, _score, _letters)
 
 type Board = Map (Int, Int) Api.Cell
 
@@ -47,16 +52,18 @@ newtype PlayerId = PlayerId {unPlayerId :: Int}
   deriving newtype (Eq, Ord, Show)
 
 data State = State
-  { players :: Map PlayerId Player
-  , nextPlayerId :: PlayerId
-  , connections :: Bimap Connection PlayerId
-  , boardSize :: (Int, Int)
-  , board :: Board
-  , bag :: [Api.Letter]
-  , uncommitted :: Map (Int, Int) PlayerId
-  , stdGen :: StdGen
+  { _players :: Map PlayerId Player
+  , _nextPlayerId :: PlayerId
+  , _connections :: Bimap Connection PlayerId
+  , _boardSize :: (Int, Int)
+  , _board :: Board
+  , _bag :: [Api.Letter]
+  , _uncommitted :: Map (Int, Int) PlayerId
+  , _stdGen :: StdGen
   }
   deriving Show
+
+makeLenses ''State
 
 data Effect
   = Send Connection Api.Message_S2C
@@ -64,33 +71,40 @@ data Effect
   | Log String
 
 data Self = Self
-  { connection :: Connection
-  , pid :: PlayerId
-  , player :: Player
-  , state :: State
+  { _connection :: Connection
+  , _pid :: PlayerId
+  , _player :: Player
+  , _state :: State
   }
   deriving Show
 
-type Scrabble a = GameM State Effect () Connection a
+makeLenses ''Self
+
+type Scrabble a = Game.GameM State Effect () Connection a
 
 log :: String -> Scrabble ()
-log msg = perform $ Log msg
+log msg = Game.perform $ Log msg
 
 send :: Connection -> Api.Message_S2C -> Scrabble ()
-send conn msg = perform $ Send conn msg
+send conn msg = Game.perform $ Send conn msg
 
 close :: Connection -> Scrabble ()
-close conn = perform $ Close conn
+close conn = Game.perform $ Close conn
 
 getSelf :: Scrabble Self
 getSelf = do
-  state@State{players, connections} <- getState
-  connection <- getConnection
-  case Bimap.lookup connection connections of
-    Nothing -> throwHard $ "connection not in game state: " ++ show connection
+  state <- Game.getState
+  connection <- Game.getConnection
+  case Bimap.lookup connection (state ^. connections) of
+    Nothing -> Game.throwHard $ "connection not in game state: " ++ show connection
     Just pid -> case Map.lookup pid players of
-      Nothing -> throwHard $ "no player associated with " ++ show connection
-      Just player -> pure $ Self{connection, pid, player, state}
+      Nothing -> Game.throwHard $ "no player associated with " ++ show connection
+      Just player -> pure $ Self
+        { _connection = connection
+        , _pid = pid
+        , _player = player
+        , _state = state
+        }
 
 onDeadPlayer :: Scrabble ()
 onDeadPlayer = do
@@ -350,8 +364,8 @@ handle Api.Join{playerName} = do
 
 handle Api.Drop{src, dst} = do
   Self
-    { pid
-    , player = player@Player{letters}
+    { _pid
+    , _player = player@Player{letters}
     , state  = st@State{uncommitted}
     } <- getSelf
 
