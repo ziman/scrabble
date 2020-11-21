@@ -198,11 +198,10 @@ checkVotes = do
         modify $ \st -> st
           & uncommitted .~ Map.empty
           & bag .~ bag'
-          & players . ix scorerId %~
-             \p -> p
-              & (score   %~ (\s -> s + wordScore + getBonus (st ^. uncommitted)))
-              & (letters %~ (++ newLetters))
-              & (turns   %~ (+1))
+          & players . ix scorerId %~ \p -> p
+            & score   %~ (\s -> s + wordScore + getBonus (st ^. uncommitted))
+            & letters %~ (++ newLetters)
+            & turns   %~ (+1)
 
         resetVotes
 
