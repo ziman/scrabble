@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Scrabble (game, mkInitialState) where
 
 import Prelude hiding (log, Word, length)
@@ -22,56 +23,55 @@ import qualified Data.Yaml as Yaml
 import qualified Data.List as List
 
 import Control.Monad (when)
+import Control.Monad.State.Class
 
-import Game.WSGame.Game
 import Game.WSGame.Engine (Connection)
+import Game.WSGame.Game as Game
 import qualified Game.WSGame.Engine as Engine
+
+import Lens.Micro.Platform
 
 import qualified Api
 
 data Player = Player
-  { name :: Text
-  , letters :: [Api.Letter]
-  , score :: Int
-  , vote :: Bool
-  , turns :: Int
+  { _name :: Text
+  , _letters :: [Api.Letter]
+  , _score :: Int
+  , _vote :: Bool
+  , _turns :: Int
   }
 
-instance Show Player where
-  show Player{name,score,letters}
-    = show (name,score,letters)
+makeLenses ''Player
 
+instance Show Player where
+  show Player{_name, _score, _letters}
+    = show (_name, _score, _letters)
+
+-- always 15x15
 type Board = Map (Int, Int) Api.Cell
 
 newtype PlayerId = PlayerId {unPlayerId :: Int}
   deriving newtype (Eq, Ord, Show)
 
 data State = State
-  { players :: Map PlayerId Player
-  , nextPlayerId :: PlayerId
-  , connections :: Bimap Connection PlayerId
-  , boardSize :: (Int, Int)
-  , board :: Board
-  , bag :: [Api.Letter]
-  , uncommitted :: Map (Int, Int) PlayerId
-  , stdGen :: StdGen
+  { _players :: Map PlayerId Player
+  , _nextPlayerId :: PlayerId
+  , _connections :: Bimap Connection PlayerId
+  , _board :: Board
+  , _bag :: [Api.Letter]
+  , _uncommitted :: Map (Int, Int) PlayerId
+  , _stdGen :: StdGen
   }
   deriving Show
+
+makeLenses ''State
 
 data Effect
   = Send Connection Api.Message_S2C
   | Close Connection
   | Log String
 
-data Self = Self
-  { connection :: Connection
-  , pid :: PlayerId
-  , player :: Player
-  , state :: State
-  }
-  deriving Show
-
-type Scrabble a = GameM State Effect () Connection a
+type Scrabble a = Game.GameM State Effect () Connection a
 
 log :: String -> Scrabble ()
 log msg = perform $ Log msg
@@ -82,78 +82,80 @@ send conn msg = perform $ Send conn msg
 close :: Connection -> Scrabble ()
 close conn = perform $ Close conn
 
+data Self = Self
+  { _pid :: PlayerId
+  , _self :: Traversal' State Player
+  }
+
 getSelf :: Scrabble Self
 getSelf = do
-  state@State{players, connections} <- getState
+  state <- getState
   connection <- getConnection
-  case Bimap.lookup connection connections of
+  case Bimap.lookup connection (state ^. connections) of
     Nothing -> throwHard $ "connection not in game state: " ++ show connection
-    Just pid -> case Map.lookup pid players of
-      Nothing -> throwHard $ "no player associated with " ++ show connection
-      Just player -> pure $ Self{connection, pid, player, state}
+    Just pid -> do
+      -- check the PID because `ix` won't do that
+      when (not $ has (players . ix pid) state) $
+        throwHard $ "no player for PID " ++ show pid
+
+      return $ Self pid (players . ix pid)
 
 onDeadPlayer :: Scrabble ()
 onDeadPlayer = do
   connection <- getConnection
-
-  modifyState $ \st@State{connections} -> st
-    { connections = Bimap.delete connection connections
-    }
-
+  connections %= Bimap.delete connection
   broadcastStateUpdate
 
 sendStateUpdate :: Connection -> Player -> State -> Scrabble ()
-sendStateUpdate conn Player{..} st@State{boardSize=(rows,cols), ..} = do
+sendStateUpdate conn player st = do
   let mbNextTurn = minimumMay
-        [ (turns, pid)
-        | (pid, Player{turns}) <- Map.toList players
-        , pid `Bimap.memberR` connections  -- and is alive
+        [ (p ^. turns, pid)
+        | (pid, p) <- Map.toList (st ^. players)
+        , pid `Bimap.memberR` (st ^. connections)  -- and is alive
         ]
   send conn $ Api.Update $ Api.State
     { players =
       [ Api.Player
-        { name    = name
-        , score   = score
-        , letters = List.length letters
-        , vote    = vote
-        , isAlive = pid `Bimap.memberR` connections
-        , turns
-        , isTheirTurn = Just (turns, pid) == mbNextTurn
+        { name    = p ^. name
+        , score   = p ^. score
+        , letters = List.length (p ^. letters)
+        , vote    = p ^. vote
+        , isAlive = pid `Bimap.memberR` (st ^. connections)
+        , turns   = p ^. turns
+        , isTheirTurn = Just (p ^. turns, pid) == mbNextTurn
         }
-      | (pid, Player{..}) <- Map.toList players
+      | (pid, p) <- Map.toList (st ^. players)
       ]
     , board = Api.MkBoard  -- we could precompute this
-      { rows = rows
-      , cols = cols
+      { rows = 15
+      , cols = 15
       , cells =
-        [ [ board Map.! (i, j)
-          | j <- [0..cols-1]
+        [ [ (st ^. board) Map.! (i, j)
+          | j <- [0..14]
           ]
-        | i <- [0..rows-1]
+        | i <- [0..14]
         ]
       }
-    , uncommitted = Map.keys uncommitted
+    , uncommitted = Map.keys (st ^. uncommitted)
     , uncommittedWords = getUncommittedWords st
-    , bonus = getBonus uncommitted
-    , lettersLeft = List.length bag
+    , bonus = getBonus (st ^. uncommitted)
+    , lettersLeft = List.length (st ^. bag)
 
     -- player props
-    , vote
-    , letters
-    , name
+    , vote    = player ^. vote
+    , letters = player ^. letters
+    , name    = player ^. name
     }
 
 broadcastStateUpdate :: Scrabble ()
 broadcastStateUpdate = do
-  st@State{players, connections} <- getState
-  for_ (Bimap.toList connections) $ \(connection, pid) ->
-    sendStateUpdate connection (players Map.! pid) st
+  st <- getState
+  for_ (Bimap.toList $ st ^. connections) $ \(connection, pid) ->
+    sendStateUpdate connection ((st ^. players) Map.! pid) st
 
 resetVotes :: Scrabble ()
-resetVotes = modifyState $ \st -> st
-  { players = players st
-    & Map.map (\p -> p{vote = False})
-  }
+resetVotes =
+  players.each.vote .= False
 
 extract :: Int -> [a] -> Maybe (a, [a])
 extract _ [] = Nothing
@@ -183,28 +185,25 @@ getBonus uncommitted
 
 checkVotes :: Scrabble ()
 checkVotes = do
-  st@State{players,uncommitted,bag} <- getState
+  st <- getState
 
-  case Set.toList $ Set.fromList (Map.elems uncommitted) of
+  case Set.toList $ Set.fromList (Map.elems (st ^. uncommitted)) of
     -- exactly one player owns all letters
     [scorerId] -> do
-      let agreed = all (\Player{vote} -> vote == True) (Map.elems players)
+      let agreed = and (st ^.. players . each . vote)
       when agreed $ do
         let wordScore = sum [value | Api.UncommittedWord{value} <- getUncommittedWords st]
-        let (newLetters, bag') = splitAt (Map.size uncommitted) bag
-        setState st
-          { uncommitted = Map.empty
-          , players = players
-            & Map.adjust
-                (\p@Player{score,letters,turns} -> p
-                  { score = score + wordScore + getBonus uncommitted
-                  , letters = letters ++ newLetters
-                  , turns = turns + 1
-                  }
-                )
-                scorerId
-          , bag = bag'
-          }
+        let (newLetters, bag') = splitAt (Map.size (st ^. uncommitted)) (st ^. bag)
+
+        modify $ \st -> st
+          & uncommitted .~ Map.empty
+          & bag .~ bag'
+          & players . ix scorerId %~
+             \p -> p
+              & (score   %~ (\s -> s + wordScore + getBonus (st ^. uncommitted)))
+              & (letters %~ (++ newLetters))
+              & (turns   %~ (+1))
+
         resetVotes
 
     [] -> do
@@ -219,9 +218,9 @@ checkVotes = do
       broadcastStateUpdate
       throwSoft $ "multiple letter owners: "
         ++ List.intercalate ", "
-          [ Text.unpack name
+          [ Text.unpack (p ^. name)
           | conn <- owners
-          , Just Player{name} <- [Map.lookup conn players]
+          , Just p <- [st ^. players . at conn]
           ]
 
 data Word = Word
@@ -277,39 +276,37 @@ getWords i j board uncommitted = Set.fromList $
       | otherwise = mempty
 
 getUncommittedWords :: State -> [Api.UncommittedWord]
-getUncommittedWords State{board,uncommitted} =
+getUncommittedWords st =
   [ Api.UncommittedWord
     { word
     , value = letterScore * wordMultiplier
     }
   | Word{word,letterScore,wordMultiplier}
       <- Set.toAscList $ Set.unions
-        [ getWords i j board uncommitted
-        | (i,j) <- Map.keys uncommitted
+        [ getWords i j (st ^. board) (st ^. uncommitted)
+        | (i,j) <- Map.keys (st ^. uncommitted)
         ]
   ]
 
 handle :: Api.Message_C2S -> Scrabble ()
 handle Api.Join{playerName} = do
-  st@State{players, connections, nextPlayerId} <- getState
+  st <- getState
   thisConnection <- getConnection
 
   -- check if this player already exists
-  case [(pid, p) | (pid, p@Player{name}) <- Map.toList players, name == playerName] of
+  case [(pid, p) | (pid, p) <- Map.toList (st ^. players), (p ^. name) == playerName] of
     -- existing player
-    (pid, Player{name}):_ ->
-      case [c | (c, pid') <- Bimap.toList connections, pid' == pid] of
+    (pid, player):_ ->
+      case [c | (c, pid') <- Bimap.toList (st ^. connections), pid' == pid] of
         -- currently connected
         oldConnection:_ -> do
           log $ show thisConnection ++ " replaces live player "
-            ++ show (oldConnection, name)
+            ++ show (oldConnection, player ^. name)
 
           -- replace the player
-          setState st
-            { connections = connections
-              & Bimap.delete oldConnection
-              & Bimap.insert thisConnection pid
-            }
+          connections %=
+              Bimap.delete oldConnection
+            . Bimap.insert thisConnection pid
 
           -- close the old connection
           close oldConnection
@@ -317,143 +314,117 @@ handle Api.Join{playerName} = do
         -- dead player
         [] -> do
           log $ show thisConnection ++ " resurrects dead player "
-            ++ show name
+            ++ show (player ^. name)
 
           -- resurrect the player
-          setState st
-            { connections = connections
-              & Bimap.insert thisConnection pid
-            }
+          connections %= Bimap.insert thisConnection pid
 
     -- brand new player
     [] -> do
       -- create a new player
       log $ show thisConnection ++ " is a new player"
 
-      let (letters, rest) = splitAt 8 (bag st)
-      setState st
-        { players = players
-          & Map.insert nextPlayerId Player
-            { name = playerName
-            , letters = letters
-            , score = 0
-            , vote = False
-            , turns = foldl' max 0 [turns | Player{turns} <- Map.elems players]
+      let (letters, rest) = splitAt 8 (st ^. bag)
+      modify $ \st -> st
+        & (players . at (st ^. nextPlayerId) .~ Just Player
+            { _name = playerName
+            , _letters = letters
+            , _score = 0
+            , _vote = False
+            , _turns = foldl' max 0 (st ^.. players . each . turns)
             }
-        , connections = connections
-          & Bimap.insert thisConnection nextPlayerId
-        , nextPlayerId = PlayerId (unPlayerId nextPlayerId + 1)
-        , bag = rest
-        }
+          )
+        & (connections %~ Bimap.insert thisConnection (st ^. nextPlayerId))
+        & (nextPlayerId %~ (PlayerId . (+1) . unPlayerId))
+        & (bag .~ rest)
 
   broadcastStateUpdate
 
 handle Api.Drop{src, dst} = do
-  Self
-    { pid
-    , player = player@Player{letters}
-    , state  = st@State{uncommitted}
-    } <- getSelf
+  st <- getState
+  Self pid self <- getSelf
 
   case (src, dst) of
     (Api.Letters k, Api.Board dstI dstJ)
-      | Just cellDst@Api.Cell{letter = Nothing}
-          <- Map.lookup (dstI, dstJ) (board st)
-      , Just (letter, rest) <- extract k letters
+      | Just dstCell@Api.Cell{letter = Nothing}
+          <- st ^. board . at (dstI, dstJ)
+      , Just (srcLetter, rest)
+          <- extract k (st ^. self . letters)
       -> do
-        setState st
-          { board = board st
-            & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
-          , players = players st
-            & Map.insert pid player{letters = rest}
-          , uncommitted = uncommitted
-            & Map.insert (dstI, dstJ) pid
-          }
+        modify $
+            (board . ix (dstI, dstJ) .~ (dstCell{Api.letter = Just srcLetter} :: Api.Cell))
+          . (self . letters .~ rest)
+          . (uncommitted . at (dstI, dstJ) .~ Just pid)
 
         resetVotes
         broadcastStateUpdate
 
     (Api.Board srcI srcJ, Api.Board dstI dstJ)
-      | Just cellDst@Api.Cell{letter = Nothing}
-          <- Map.lookup (dstI, dstJ) (board st)
-      , Just cellSrc@Api.Cell{letter = Just letter}
-          <- Map.lookup (srcI, srcJ) (board st)
-      , Just ownerId <- Map.lookup (srcI, srcJ) uncommitted
+      | Just dstCell@Api.Cell{letter = Nothing}
+          <- st ^. board . at (dstI, dstJ)
+      , Just srcCell@Api.Cell{letter = Just srcLetter}
+          <- st ^. board . at (srcI, srcJ)
+      , Just ownerId
+          <- st ^. uncommitted . at (srcI, srcJ)
       , ownerId == pid
       -> do
-        setState st
-          { board = board st
-            & Map.insert (dstI, dstJ) (cellDst{Api.letter = Just letter} :: Api.Cell)
-            & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
-          , uncommitted = uncommitted
-            & Map.delete (srcI, srcJ)
-            & Map.insert (dstI, dstJ) pid
-          }
+        modify $
+            (board %~ (
+                (ix (dstI, dstJ) .~ (dstCell{Api.letter = Just srcLetter} :: Api.Cell))
+              . (ix (srcI, srcJ) .~ (srcCell{Api.letter = Nothing} :: Api.Cell))))
+          . (uncommitted %~ (
+                (at (srcI, srcJ) .~ Nothing)
+              . (at (dstI, dstJ) .~ Just pid)))
 
         resetVotes
         broadcastStateUpdate
 
     (Api.Letters srcIdx, Api.Letters dstIdx)
-      | moved <- move srcIdx dstIdx letters
+      | moved <- move srcIdx dstIdx (st ^. self . letters)
       -> do
-        setState st
-          { players = players st
-            & Map.insert pid player{letters = moved}
-          }
+        self . letters .= moved
         broadcastStateUpdate
 
     (Api.Board srcI srcJ, Api.Letters dstIdx)
-      | Just cellSrc@Api.Cell{letter = Just letter}
-          <- Map.lookup (srcI, srcJ) (board st)
-      , Just ownerId <- Map.lookup (srcI, srcJ) uncommitted
+      | Just srcCell@Api.Cell{letter = Just srcLetter}
+          <- st ^. board . at (srcI, srcJ)
+      , Just ownerId
+          <- st ^. uncommitted . at (srcI, srcJ)
       , ownerId == pid
       -> do
-        let (ls, rs) = splitAt dstIdx letters
-        setState st
-          { players = players st
-            & Map.insert pid player{letters = ls ++ letter : rs}
-          , board = board st
-            & Map.insert (srcI, srcJ) (cellSrc{Api.letter = Nothing} :: Api.Cell)
-          , uncommitted = uncommitted
-            & Map.delete (srcI, srcJ)
-          }
+        let (ls, rs) = splitAt dstIdx (st ^. self . letters)
+
+        modify $
+            (self . letters .~ (ls ++ srcLetter : rs))
+          . (board . ix (srcI, srcJ) .~ (srcCell{Api.letter = Nothing} :: Api.Cell))
+          . (uncommitted . at (srcI, srcJ) .~ Nothing)
+
         broadcastStateUpdate
 
     _ -> throwSoft "can't move letter"
 
-handle Api.Vote{vote} = do
-  Self{pid, player} <- getSelf
-
-  modifyState $ \st -> st
-    { players = players st
-      & Map.insert pid player{vote}
-    }
+handle Api.Vote{vote=vote'} = do
+  Self _pid self <- getSelf
+  self.vote .= vote'
   checkVotes
   broadcastStateUpdate
 
 handle Api.Recycle = do
-  Self
-    { pid
-    , player = player@Player{turns,letters}
-    , state = st@State{bag, stdGen, players, uncommitted}
-    } <- getSelf
+  st <- getState
+  Self _pid self <- getSelf
 
-  when (not $ Map.null uncommitted) $
+  when (not $ Map.null (st ^. uncommitted)) $
     throwSoft "can't recycle with uncommitted letters on board"
 
-  let bigBag = letters ++ bag
-  let (stdGen', bigBag') = shuffle stdGen bigBag
+  let bigBag = (st ^. self . letters) ++ (st ^. bag)
+  let (stdGen', bigBag') = shuffle (st ^. stdGen) bigBag
   let (letters', bag') = splitAt 8 bigBag'
 
-  setState st
-    { players = players
-      & Map.insert pid player
-        { turns = turns + 1
-        , letters = letters'
-        }
-    , stdGen = stdGen'
-    , bag = bag'
-    }
+  setState $ st
+    & self . turns %~ (+1)
+    & self . letters .~ letters'
+    & stdGen .~ stdGen'
+    & bag .~ bag'
 
   broadcastStateUpdate
 
@@ -498,19 +469,18 @@ mkInitialState fnLanguage = do
   g <- newStdGen
   let (stdGen, bag) = shuffle g $ languageLetters lang
   pure $ State
-    { players = Map.empty
-    , connections = Bimap.empty
-    , nextPlayerId = PlayerId 1
-    , boardSize = (15, 15)
-    , board =
+    { _players = Map.empty
+    , _connections = Bimap.empty
+    , _nextPlayerId = PlayerId 1
+    , _board =
       Map.fromList
         [(ij, Api.Cell (Just boost) Nothing) | (boost, ijs) <- boosts, ij <- ijs]
       `Map.union`
         Map.fromList
           [((i,j), Api.Cell Nothing Nothing) | i <- [0..14], j <- [0..14]]
-    , uncommitted = mempty
-    , bag
-    , stdGen
+    , _uncommitted = mempty
+    , _bag = bag
+    , _stdGen = stdGen
     }
   where
     languageLetters :: Map Int (Map Text Int) -> [Api.Letter]
