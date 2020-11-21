@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7559b6302c97973958ea6e551d231591fc435d8e9d0483dd84ae9262c2ccd4f2
+-- hash: ab0a40e025dc66623ab65337ddeb151b4e72a4c1b56fec666e6b63a4e0dd219b
 
 name:           scrabble
 version:        0.1.0.0
@@ -39,6 +39,7 @@ executable backend
     , bytestring
     , containers
     , microlens-platform
+    , mtl
     , optparse-applicative
     , random
     , safe
