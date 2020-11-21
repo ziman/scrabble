@@ -82,7 +82,10 @@ send conn msg = perform $ Send conn msg
 close :: Connection -> Scrabble ()
 close conn = perform $ Close conn
 
-data Self = Self PlayerId (Traversal' State Player)
+data Self = Self
+  { _pid :: PlayerId
+  , _self :: Traversal' State Player
+  }
 
 getSelf :: Scrabble Self
 getSelf = do
@@ -294,7 +297,7 @@ handle Api.Join{playerName} = do
   case [(pid, p) | (pid, p) <- Map.toList (st ^. players), (p ^. name) == playerName] of
     -- existing player
     (pid, player):_ ->
-      case [c | (c, pid') <- Bimap.toList connections, pid' == pid] of
+      case [c | (c, pid') <- Bimap.toList (st ^. connections), pid' == pid] of
         -- currently connected
         oldConnection:_ -> do
           log $ show thisConnection ++ " replaces live player "
@@ -302,8 +305,8 @@ handle Api.Join{playerName} = do
 
           -- replace the player
           connections %=
-              (at oldConnection  .~ Nothing)
-            . (at thisConnection .~ Just pid)
+              Bimap.delete oldConnection
+            . Bimap.insert thisConnection pid
 
           -- close the old connection
           close oldConnection
@@ -314,14 +317,14 @@ handle Api.Join{playerName} = do
             ++ show (player ^. name)
 
           -- resurrect the player
-          connections . at thisConnection .= Just pid
+          connections %= Bimap.insert thisConnection pid
 
     -- brand new player
     [] -> do
       -- create a new player
       log $ show thisConnection ++ " is a new player"
 
-      let (letters, rest) = splitAt 8 (bag st)
+      let (letters, rest) = splitAt 8 (st ^. bag)
       modify $ \st -> st
         & (players . at (st ^. nextPlayerId) .~ Just Player
             { _name = playerName
@@ -331,7 +334,7 @@ handle Api.Join{playerName} = do
             , _turns = foldl' max 0 (st ^.. players . each . turns)
             }
           )
-        & (connections . at thisConnection .~ Just (st ^. nextPlayerId))
+        & (connections %~ Bimap.insert thisConnection (st ^. nextPlayerId))
         & (nextPlayerId %~ (PlayerId . (+1) . unPlayerId))
         & (bag .~ rest)
 
@@ -349,7 +352,7 @@ handle Api.Drop{src, dst} = do
           <- extract k (st ^. self . letters)
       -> do
         modify $
-            (board . ix (dstI, dstJ) .~ (dstCell{Api.letter = srcLetter} :: Api.Cell))
+            (board . ix (dstI, dstJ) .~ (dstCell{Api.letter = Just srcLetter} :: Api.Cell))
           . (self . letters .~ rest)
           . (uncommitted . at (dstI, dstJ) .~ Just pid)
 
@@ -366,18 +369,18 @@ handle Api.Drop{src, dst} = do
       , ownerId == pid
       -> do
         modify $
-            (board
-              & (ix (dstI, dstJ) .~ (dstCell{Api.letter = Just srcLetter} :: Api.Cell))
-              & (ix (srcI, srcJ) .~ (srcCell{Api.letter = Nothing} :: Api.Cell)))
-          . (uncommitted
-              & (at (srcI, srcJ) .~ Nothing)
-              & (at (dstI, dstJ) .~ Just pid))
+            (board %~ (
+                (ix (dstI, dstJ) .~ (dstCell{Api.letter = Just srcLetter} :: Api.Cell))
+              . (ix (srcI, srcJ) .~ (srcCell{Api.letter = Nothing} :: Api.Cell))))
+          . (uncommitted %~ (
+                (at (srcI, srcJ) .~ Nothing)
+              . (at (dstI, dstJ) .~ Just pid)))
 
         resetVotes
         broadcastStateUpdate
 
     (Api.Letters srcIdx, Api.Letters dstIdx)
-      | moved <- move srcIdx dstIdx letters
+      | moved <- move srcIdx dstIdx (st ^. self . letters)
       -> do
         self . letters .= moved
         broadcastStateUpdate
@@ -389,7 +392,7 @@ handle Api.Drop{src, dst} = do
           <- st ^. uncommitted . at (srcI, srcJ)
       , ownerId == pid
       -> do
-        let (ls, rs) = splitAt dstIdx letters
+        let (ls, rs) = splitAt dstIdx (st ^. self . letters)
 
         modify $
             (self . letters .~ (ls ++ srcLetter : rs))
@@ -400,27 +403,28 @@ handle Api.Drop{src, dst} = do
 
     _ -> throwSoft "can't move letter"
 
-handle Api.Vote{vote} = do
+handle Api.Vote{vote=vote'} = do
   Self _pid self <- getSelf
-  self . vote .= vote
+  self.vote .= vote'
   checkVotes
   broadcastStateUpdate
 
 handle Api.Recycle = do
+  st <- getState
   Self _pid self <- getSelf
 
-  when (not $ Map.null uncommitted) $
+  when (not $ Map.null (st ^. uncommitted)) $
     throwSoft "can't recycle with uncommitted letters on board"
 
-  bigBag <- (letters ++) <$> use bag
-  let (stdGen', bigBag') = shuffle stdGen bigBag
+  let bigBag = (st ^. self . letters) ++ (st ^. bag)
+  let (stdGen', bigBag') = shuffle (st ^. stdGen) bigBag
   let (letters', bag') = splitAt 8 bigBag'
 
-  modify $
-      (self . turns %~ (+1))
-    . (self . letters .~ letters)
-    . (stdGen .~ stdGen')
-    . (bag .~ bag')
+  setState $ st
+    & self . turns %~ (+1)
+    & self . letters .~ letters'
+    & stdGen .~ stdGen'
+    & bag .~ bag'
 
   broadcastStateUpdate
 
