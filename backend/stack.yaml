@@ -2,4 +2,4 @@ resolver: lts-16.19
 extra-deps:
 - vector-shuffling-1.1
 - git: https://github.com/ziman/ws-game
-  commit: 67d16ebac3c890075f576854e6bbf99ced24341c
+  commit: c17581dcc9b357252ddd33f62f284f1e8cf9d716
